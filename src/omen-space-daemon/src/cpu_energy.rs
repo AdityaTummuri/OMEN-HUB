@@ -39,6 +39,11 @@ pub enum CpuEnergyError {
         original_error: Box<CpuEnergyError>,
         rollback_errors: Vec<CpuEnergyError>,
     },
+    /// Bounded wait timed out while waiting for cpufreq governor to permit EPP modification.
+    GovernorTimeout {
+        target_epp: String,
+        elapsed: std::time::Duration,
+    },
 }
 
 impl fmt::Display for CpuEnergyError {
@@ -116,6 +121,16 @@ impl fmt::Display for CpuEnergyError {
                     "Operation failed with '{}' and rollback failed on {} policy(ies)",
                     original_error,
                     rollback_errors.len()
+                )
+            }
+            Self::GovernorTimeout {
+                target_epp,
+                elapsed,
+            } => {
+                write!(
+                    f,
+                    "Timed out waiting for cpufreq governor to permit EPP '{}' after {:?}",
+                    target_epp, elapsed
                 )
             }
         }
@@ -468,12 +483,31 @@ impl CpuEnergyManager {
                     continue;
                 }
 
-                // Write new value
-                let write_res = OpenOptions::new()
-                    .write(true)
-                    .truncate(true)
-                    .open(epp_path)
-                    .and_then(|mut f| f.write_all(epp_str.as_bytes()).and_then(|_| f.flush()));
+                // Write new value with bounded retry on EBUSY (e.g. kernel governor transition in progress)
+                let mut write_res = Err(io::Error::new(io::ErrorKind::ResourceBusy, "EBUSY"));
+                let write_deadline =
+                    std::time::Instant::now() + std::time::Duration::from_millis(300);
+                while std::time::Instant::now() <= write_deadline {
+                    let res = OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .open(epp_path)
+                        .and_then(|mut f| f.write_all(epp_str.as_bytes()).and_then(|_| f.flush()));
+
+                    match res {
+                        Ok(()) => {
+                            write_res = Ok(());
+                            break;
+                        }
+                        Err(ref e) if e.raw_os_error() == Some(16) => {
+                            std::thread::sleep(std::time::Duration::from_millis(15));
+                        }
+                        Err(e) => {
+                            write_res = Err(e);
+                            break;
+                        }
+                    }
+                }
 
                 if let Err(e) = write_res {
                     let err = CpuEnergyError::IoError {
@@ -593,6 +627,58 @@ impl CpuEnergyManager {
         }
 
         Ok(())
+    }
+
+    /// Checks whether the current cpufreq governors permit writing the requested EPP preference.
+    /// Under drivers like `amd-pstate-epp`, a `performance` governor locks EPP to `performance`
+    /// and rejects non-performance values with EBUSY.
+    pub fn governors_permit_epp(&self, epp: EppPreference) -> bool {
+        if epp == EppPreference::Performance {
+            return true;
+        }
+
+        for policy in &self.caps.policies {
+            let gov_path = policy.path.join("scaling_governor");
+            if gov_path.is_file() {
+                if let Ok(gov) = fs::read_to_string(&gov_path) {
+                    if gov.trim() == "performance" {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    /// Waits with bounded polling until cpufreq governors permit writing the requested EPP preference.
+    /// If governors do not permit the transition before `timeout`, returns `CpuEnergyError::GovernorTimeout`.
+    pub fn wait_for_governor_for_epp(
+        &self,
+        epp: EppPreference,
+        timeout: std::time::Duration,
+    ) -> Result<(), CpuEnergyError> {
+        if self.governors_permit_epp(epp) {
+            return Ok(());
+        }
+
+        let start = std::time::Instant::now();
+        let poll_interval = std::time::Duration::from_millis(50);
+
+        loop {
+            if start.elapsed() >= timeout {
+                return Err(CpuEnergyError::GovernorTimeout {
+                    target_epp: epp.as_str().to_string(),
+                    elapsed: start.elapsed(),
+                });
+            }
+
+            let sleep_dur = poll_interval.min(timeout.saturating_sub(start.elapsed()));
+            std::thread::sleep(sleep_dur);
+
+            if self.governors_permit_epp(epp) {
+                return Ok(());
+            }
+        }
     }
 }
 

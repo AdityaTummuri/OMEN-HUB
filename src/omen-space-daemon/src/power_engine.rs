@@ -185,6 +185,50 @@ impl PlatformProfileManager {
         Ok(content.trim().to_string())
     }
 
+    /// Resolves a requested semantic profile (e.g. "power-saver") to the actual
+    /// string supported by the underlying ACPI platform_profile sysfs interface.
+    ///
+    /// Preserves dynamic hardware discovery:
+    /// - If the exact requested string is in `available_choices`, use it directly.
+    /// - If "power-saver" is requested but hardware exposes "low-power" (standard Linux kernel ACPI),
+    ///   maps to "low-power".
+    /// - If "low-power" is requested but hardware exposes "power-saver", maps to "power-saver".
+    /// - If `available_choices` is empty (choices file missing), passes through the requested profile.
+    /// - Returns None if requested profile cannot be satisfied by available choices.
+    pub fn resolve_hardware_profile<'a>(&'a self, requested: &'a str) -> Option<&'a str> {
+        let choices = self.available_choices();
+        if choices.is_empty() {
+            return Some(requested);
+        }
+
+        if choices.iter().any(|c| c == requested) {
+            return Some(requested);
+        }
+
+        if requested == "power-saver" && choices.iter().any(|c| c == "low-power") {
+            return Some("low-power");
+        }
+
+        if requested == "low-power" && choices.iter().any(|c| c == "power-saver") {
+            return Some("power-saver");
+        }
+
+        None
+    }
+
+    /// Checks if an actual profile read from sysfs satisfies the requested semantic profile.
+    pub fn profiles_match(&self, semantic: &str, actual_hw: &str) -> bool {
+        if semantic == actual_hw {
+            return true;
+        }
+        if (semantic == "power-saver" && actual_hw == "low-power")
+            || (semantic == "low-power" && actual_hw == "power-saver")
+        {
+            return true;
+        }
+        false
+    }
+
     /// Sets the ACPI platform profile with pre-validation and readback.
     pub fn set_profile(&self, profile: &str) -> Result<(), PowerEngineError> {
         let info = self
@@ -192,15 +236,12 @@ impl PlatformProfileManager {
             .as_ref()
             .ok_or(PowerEngineError::PlatformProfileNotSupported)?;
 
-        // Validate choice if choices list is available
-        if !info.available_choices.is_empty()
-            && !info.available_choices.iter().any(|c| c == profile)
-        {
-            return Err(PowerEngineError::UnsupportedPlatformProfile {
+        let hw_profile = self.resolve_hardware_profile(profile).ok_or_else(|| {
+            PowerEngineError::UnsupportedPlatformProfile {
                 requested: profile.to_string(),
                 available: info.available_choices.clone(),
-            });
-        }
+            }
+        })?;
 
         let mut file = OpenOptions::new()
             .write(true)
@@ -212,7 +253,7 @@ impl PlatformProfileManager {
                 source: e,
             })?;
 
-        file.write_all(profile.as_bytes())
+        file.write_all(hw_profile.as_bytes())
             .and_then(|_| file.flush())
             .map_err(|e| PowerEngineError::PlatformProfileIoError {
                 path: info.profile_path.clone(),
@@ -222,12 +263,12 @@ impl PlatformProfileManager {
 
         // Readback verification
         let readback = self.read_profile()?;
-        if readback != profile {
+        if !self.profiles_match(profile, &readback) {
             return Err(PowerEngineError::VerificationFailed {
                 mode: PowerMode::Work, // fallback placeholder for low-level manager
                 reason: format!(
-                    "Platform profile readback mismatch: expected '{}', got '{}'",
-                    profile, readback
+                    "Platform profile readback mismatch: expected '{}' (hw: '{}'), got '{}'",
+                    profile, hw_profile, readback
                 ),
             });
         }
@@ -250,6 +291,7 @@ pub struct UnifiedPowerEngine {
     current_mode: Option<PowerMode>,
     cpu_manager: CpuEnergyManager,
     platform_manager: PlatformProfileManager,
+    governor_timeout: std::time::Duration,
 }
 
 impl UnifiedPowerEngine {
@@ -262,6 +304,7 @@ impl UnifiedPowerEngine {
             current_mode: None,
             cpu_manager,
             platform_manager,
+            governor_timeout: std::time::Duration::from_secs(4),
         })
     }
 
@@ -275,6 +318,7 @@ impl UnifiedPowerEngine {
             current_mode: None,
             cpu_manager,
             platform_manager,
+            governor_timeout: std::time::Duration::from_secs(4),
         })
     }
 
@@ -296,6 +340,11 @@ impl UnifiedPowerEngine {
     /// Reference to the underlying platform profile manager.
     pub fn platform_manager(&self) -> &PlatformProfileManager {
         &self.platform_manager
+    }
+
+    /// Sets the maximum timeout to wait for cpufreq governors to permit EPP changes.
+    pub fn set_governor_timeout(&mut self, timeout: std::time::Duration) {
+        self.governor_timeout = timeout;
     }
 
     /// Transactionally applies the specified PowerMode.
@@ -331,6 +380,18 @@ impl UnifiedPowerEngine {
 
         // Step 4: Apply EPP across all policies
         if self.cpu_manager.capabilities().has_epp() {
+            // Wait with bounded polling until cpufreq governors permit writing the target EPP
+            if let Err(e) = self
+                .cpu_manager
+                .wait_for_governor_for_epp(def.epp, self.governor_timeout)
+            {
+                // Rollback platform profile if it was modified
+                if let Some(ref prev_prof) = prev_platform_profile {
+                    let _ = self.platform_manager.set_profile(prev_prof);
+                }
+                return Err(PowerEngineError::CpuError(e));
+            }
+
             if let Err(e) = self.cpu_manager.set_epp(def.epp) {
                 // Rollback platform profile if it was modified
                 if let Some(ref prev_prof) = prev_platform_profile {
@@ -409,7 +470,10 @@ impl UnifiedPowerEngine {
 
         if self.platform_manager.has_profile_control() {
             match self.platform_manager.read_profile() {
-                Ok(actual_prof) if actual_prof == def.platform_profile => {}
+                Ok(actual_prof)
+                    if self
+                        .platform_manager
+                        .profiles_match(def.platform_profile, &actual_prof) => {}
                 Ok(actual_prof) => {
                     let _ = self.cpu_manager.restore(&cpu_snapshot);
                     if let Some(ref prev_prof) = prev_platform_profile {
@@ -503,6 +567,19 @@ mod tests {
 
             (policy_dir, epp_path)
         }
+
+        fn add_policy_with_governor(
+            &self,
+            index: usize,
+            initial_epp: &str,
+            initial_gov: &str,
+            available: &[&str],
+        ) -> (PathBuf, PathBuf, PathBuf) {
+            let (policy_dir, epp_path) = self.add_policy(index, initial_epp, available);
+            let gov_path = policy_dir.join("scaling_governor");
+            fs::write(&gov_path, format!("{}\n", initial_gov)).unwrap();
+            (policy_dir, epp_path, gov_path)
+        }
     }
 
     impl Drop for MockSystem {
@@ -582,6 +659,164 @@ mod tests {
         );
         assert_eq!(engine.cpu_manager().read_epp().unwrap(), "balance_power");
         assert!(engine.cpu_manager().read_boost().unwrap());
+    }
+
+    #[test]
+    fn test_game_battery_on_low_power_acpi_hardware() {
+        let mock = MockSystem::new();
+        // Live OMEN hardware platform_profile_choices: "low-power balanced performance"
+        let pp_path =
+            mock.setup_platform_profile("balanced", &["low-power", "balanced", "performance"]);
+        mock.add_boost("1");
+        mock.add_policy(
+            0,
+            "balance_power",
+            &[
+                "performance",
+                "balance_performance",
+                "balance_power",
+                "power",
+            ],
+        );
+
+        let mut engine = UnifiedPowerEngine::with_root(mock.root()).unwrap();
+
+        // Setting GameBattery should dynamically map "power-saver" -> "low-power"
+        engine.set_mode(PowerMode::GameBattery).unwrap();
+
+        // 1. Authoritative mode is GameBattery
+        assert_eq!(engine.current_mode(), Some(PowerMode::GameBattery));
+
+        // 2. Active definition preserves semantic "power-saver"
+        assert_eq!(
+            engine.active_definition().unwrap().platform_profile,
+            "power-saver"
+        );
+
+        // 3. Underlying sysfs node has hardware string "low-power"
+        let raw_pp = fs::read_to_string(&pp_path).unwrap();
+        assert_eq!(raw_pp.trim(), "low-power");
+        assert_eq!(
+            engine.platform_manager().read_profile().unwrap(),
+            "low-power"
+        );
+
+        // 4. EPP is power and Boost is OFF
+        assert_eq!(engine.cpu_manager().read_epp().unwrap(), "power");
+        assert!(!engine.cpu_manager().read_boost().unwrap());
+    }
+
+    #[test]
+    fn test_game_to_work_async_governor_transition() {
+        let mock = MockSystem::new();
+        mock.setup_platform_profile("balanced", &["low-power", "balanced", "performance"]);
+        mock.add_boost("1");
+        let (_, _, gov0) = mock.add_policy_with_governor(
+            0,
+            "balance_power",
+            "powersave",
+            &[
+                "performance",
+                "balance_performance",
+                "balance_power",
+                "power",
+            ],
+        );
+        let (_, _, gov1) = mock.add_policy_with_governor(
+            1,
+            "balance_power",
+            "powersave",
+            &[
+                "performance",
+                "balance_performance",
+                "balance_power",
+                "power",
+            ],
+        );
+
+        let mut engine = UnifiedPowerEngine::with_root(mock.root()).unwrap();
+
+        // 1. Set to Game
+        engine.set_mode(PowerMode::Game).unwrap();
+        assert_eq!(engine.current_mode(), Some(PowerMode::Game));
+
+        // Simulate driver/PPD setting cpufreq governors to "performance"
+        fs::write(&gov0, "performance\n").unwrap();
+        fs::write(&gov1, "performance\n").unwrap();
+
+        // Spawn a thread that asynchronously switches governors to "powersave" after 60ms
+        let g0 = gov0.clone();
+        let g1 = gov1.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(60));
+            let _ = fs::write(&g0, "powersave\n");
+            let _ = fs::write(&g1, "powersave\n");
+        });
+
+        // 2. Transition back to Work: engine polls boundedly until governor != performance
+        engine.set_governor_timeout(std::time::Duration::from_millis(500));
+        engine.set_mode(PowerMode::Work).unwrap();
+
+        assert_eq!(engine.current_mode(), Some(PowerMode::Work));
+        assert_eq!(engine.cpu_manager().read_epp().unwrap(), "balance_power");
+        assert_eq!(
+            engine.platform_manager().read_profile().unwrap(),
+            "balanced"
+        );
+        assert!(engine.cpu_manager().read_boost().unwrap());
+    }
+
+    #[test]
+    fn test_game_to_work_governor_timeout_and_rollback() {
+        let mock = MockSystem::new();
+        mock.setup_platform_profile("balanced", &["low-power", "balanced", "performance"]);
+        mock.add_boost("1");
+        let (_, _, gov0) = mock.add_policy_with_governor(
+            0,
+            "balance_power",
+            "powersave",
+            &[
+                "performance",
+                "balance_performance",
+                "balance_power",
+                "power",
+            ],
+        );
+
+        let mut engine = UnifiedPowerEngine::with_root(mock.root()).unwrap();
+
+        // 1. Set to Game
+        engine.set_mode(PowerMode::Game).unwrap();
+        assert_eq!(engine.current_mode(), Some(PowerMode::Game));
+
+        // Simulate locked "performance" governor that never switches away
+        fs::write(&gov0, "performance\n").unwrap();
+
+        // Set short timeout of 80ms
+        engine.set_governor_timeout(std::time::Duration::from_millis(80));
+
+        // 2. Transition back to Work should time out on governor
+        let res = engine.set_mode(PowerMode::Work);
+        assert!(res.is_err());
+
+        match res.unwrap_err() {
+            PowerEngineError::CpuError(CpuEnergyError::GovernorTimeout { target_epp, .. }) => {
+                assert_eq!(target_epp, "balance_power");
+            }
+            other => panic!("Expected GovernorTimeout, got: {:?}", other),
+        }
+
+        // State must remain Game
+        assert_eq!(engine.current_mode(), Some(PowerMode::Game));
+
+        // Platform profile must have been rolled back to "performance"
+        assert_eq!(
+            engine.platform_manager().read_profile().unwrap(),
+            "performance"
+        );
+
+        // EPP must remain "performance"
+        assert_eq!(engine.cpu_manager().read_epp().unwrap(), "performance");
     }
 
     #[test]
