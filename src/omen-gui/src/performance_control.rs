@@ -326,29 +326,6 @@ pub fn build_page() -> gtk::Box {
         .halign(gtk::Align::Start)
         .hexpand(true)
         .build());
-
-    let ec_btn = gtk::ToggleButton::builder().css_classes(["ec-btn"]).build();
-    let ec_inner = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(5)
-        .valign(gtk::Align::Center)
-        .build();
-    ec_inner.append(&gtk::Image::builder()
-        .icon_name("preferences-system-symbolic")
-        .pixel_size(12)
-        .build());
-    ec_inner.append(&gtk::Label::builder()
-        .label(i18n::t("ec_delegate"))
-        .css_classes(["ec-btn-lbl"])
-        .build());
-    ec_btn.set_child(Some(&ec_inner));
-    ec_btn.set_tooltip_text(Some(i18n::t("ec_delegate_tooltip")));
-    ec_btn.connect_toggled(|btn| {
-        if btn.is_active() {
-            crate::daemon_client::set_fan_mode_sync("ec".to_string());
-        }
-    });
-    fan_header.append(&ec_btn);
     page.append(&fan_header);
 
     let fan_box = gtk::FlowBox::builder()
@@ -365,16 +342,13 @@ pub fn build_page() -> gtk::Box {
     let current_fan = crate::daemon_client::get_fan_mode_sync();
     if current_fan == "max" {
         max_btn.set_active(true);
-    } else if current_fan == "manual" {
+    } else if current_fan == "manual" || current_fan == "custom" {
         custom_btn.set_active(true);
-    } else if current_fan == "ec" {
-        ec_btn.set_active(true);
     } else {
         auto_btn.set_active(true);
     }
     max_btn.set_group(Some(&auto_btn));
     custom_btn.set_group(Some(&auto_btn));
-    ec_btn.set_group(Some(&auto_btn));
 
     auto_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_fan_mode_sync("auto".to_string()); } });
     max_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_fan_mode_sync("max".to_string()); } });

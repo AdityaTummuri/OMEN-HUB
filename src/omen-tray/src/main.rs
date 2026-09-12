@@ -1,8 +1,8 @@
 mod i18n;
 
+use i18n::t;
 use ksni::menu::{CheckmarkItem, StandardItem, SubMenu};
 use ksni::MenuItem;
-use i18n::t;
 use log::{error, info};
 use std::process::Command;
 use std::sync::OnceLock;
@@ -79,7 +79,7 @@ fn spawn_gui() {
 
 #[derive(Debug, Clone)]
 struct Tray {
-    power_profile: String,
+    power_mode: String,
     fan_mode: String,
     gpu_mode: String,
 }
@@ -110,14 +110,13 @@ impl ksni::Tray for Tray {
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
-        let p_label = match self.power_profile.as_str() {
-            "performance" => t("perf"),
-            "power-saver" | "eco" => t("eco"),
-            _ => t("balanced"),
+        let p_label = match self.power_mode.as_str() {
+            "game" => t("mode_game"),
+            "game-battery" => t("mode_game_battery"),
+            _ => t("mode_work"),
         };
         let f_label = match self.fan_mode.as_str() {
             "max" => t("max"),
-            "ec" => t("ec"),
             "custom" => t("custom"),
             _ => t("auto"),
         };
@@ -127,7 +126,15 @@ impl ksni::Tray for Tray {
         };
         ksni::ToolTip {
             title: "OMEN Space".into(),
-            description: format!("{}: {}\n{}: {}\n{}: {}", t("tt_power"), p_label, t("tt_fan"), f_label, t("tt_gpu"), g_label),
+            description: format!(
+                "{}: {}\n{}: {}\n{}: {}",
+                t("tt_power"),
+                p_label,
+                t("tt_fan"),
+                f_label,
+                t("tt_gpu"),
+                g_label
+            ),
             icon_name: "omenspace".into(),
             ..Default::default()
         }
@@ -138,7 +145,7 @@ impl ksni::Tray for Tray {
     }
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
-        let cur_power = self.power_profile.as_str();
+        let cur_power = self.power_mode.as_str();
         let cur_fan = self.fan_mode.as_str();
         let cur_gpu = self.gpu_mode.as_str();
 
@@ -154,39 +161,39 @@ impl ksni::Tray for Tray {
             .into(),
             MenuItem::Separator,
             SubMenu {
-                label: t("power_profile").into(),
+                label: t("power_mode").into(),
                 submenu: vec![
                     CheckmarkItem {
-                        label: t("perf").into(),
-                        checked: cur_power == "performance",
+                        label: t("mode_work").into(),
+                        checked: cur_power == "work",
                         activate: Box::new(|tray: &mut Self| {
-                            tray.power_profile = "performance".into();
+                            tray.power_mode = "work".into();
                             spawn_task(async {
-                                set_power_profile("performance").await;
+                                set_power_mode("work").await;
                             });
                         }),
                         ..Default::default()
                     }
                     .into(),
                     CheckmarkItem {
-                        label: t("balanced").into(),
-                        checked: cur_power == "balanced",
+                        label: t("mode_game").into(),
+                        checked: cur_power == "game",
                         activate: Box::new(|tray: &mut Self| {
-                            tray.power_profile = "balanced".into();
+                            tray.power_mode = "game".into();
                             spawn_task(async {
-                                set_power_profile("balanced").await;
+                                set_power_mode("game").await;
                             });
                         }),
                         ..Default::default()
                     }
                     .into(),
                     CheckmarkItem {
-                        label: t("eco").into(),
-                        checked: cur_power == "power-saver" || cur_power == "eco",
+                        label: t("mode_game_battery").into(),
+                        checked: cur_power == "game-battery",
                         activate: Box::new(|tray: &mut Self| {
-                            tray.power_profile = "power-saver".into();
+                            tray.power_mode = "game-battery".into();
                             spawn_task(async {
-                                set_power_profile("power-saver").await;
+                                set_power_mode("game-battery").await;
                             });
                         }),
                         ..Default::default()
@@ -218,18 +225,6 @@ impl ksni::Tray for Tray {
                             tray.fan_mode = "max".into();
                             spawn_task(async {
                                 set_fan_mode("max").await;
-                            });
-                        }),
-                        ..Default::default()
-                    }
-                    .into(),
-                    CheckmarkItem {
-                        label: t("ec").into(),
-                        checked: cur_fan == "ec",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.fan_mode = "ec".into();
-                            spawn_task(async {
-                                set_fan_mode("ec").await;
                             });
                         }),
                         ..Default::default()
@@ -275,8 +270,16 @@ impl ksni::Tray for Tray {
                 label: t("exit").into(),
                 icon_name: "application-exit".into(),
                 activate: Box::new(|_| {
-                    let _ = Command::new("pkill").arg("-TERM").arg("-x").arg("omen-gui").output();
-                    let _ = Command::new("pkill").arg("-TERM").arg("-x").arg("omenctl").output();
+                    let _ = Command::new("pkill")
+                        .arg("-TERM")
+                        .arg("-x")
+                        .arg("omen-gui")
+                        .output();
+                    let _ = Command::new("pkill")
+                        .arg("-TERM")
+                        .arg("-x")
+                        .arg("omenctl")
+                        .output();
                     std::process::exit(0);
                 }),
                 ..Default::default()
@@ -292,8 +295,8 @@ impl ksni::Tray for Tray {
     default_path = "/org/hp/omen/Power"
 )]
 trait Power {
-    async fn set_power_profile(&self, profile: &str) -> zbus::Result<String>;
-    async fn get_power_profile(&self) -> zbus::Result<String>;
+    async fn set_power_mode(&self, mode: &str) -> zbus::Result<String>;
+    async fn get_power_mode(&self) -> zbus::Result<String>;
 }
 
 #[zbus::proxy(
@@ -330,14 +333,13 @@ async fn get_conn() -> ZbusResult<Connection> {
     Connection::system().await
 }
 
-async fn fetch_power_profile() -> Option<String> {
+async fn fetch_power_mode() -> Option<String> {
     if let Ok(conn) = get_conn().await {
         if let Ok(proxy) = PowerProxy::new(&conn).await {
-            if let Ok(json_str) = proxy.get_power_profile().await {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                    if let Some(active) = val.get("active").and_then(|v| v.as_str()) {
-                        return Some(active.to_string());
-                    }
+            if let Ok(mode) = proxy.get_power_mode().await {
+                let trimmed = mode.trim().to_string();
+                if !trimmed.is_empty() && trimmed != "unknown" {
+                    return Some(trimmed);
                 }
             }
         }
@@ -371,12 +373,18 @@ async fn fetch_gpu_mode() -> Option<String> {
     None
 }
 
-async fn set_power_profile(profile: &str) {
+async fn set_power_mode(mode: &str) {
     if let Ok(conn) = get_conn().await {
         if let Ok(proxy) = PowerProxy::new(&conn).await {
-            match proxy.set_power_profile(profile).await {
-                Ok(resp) => info!("Güç profili ayarlandı ({}) -> {}", profile, resp),
-                Err(e) => error!("Güç profili değiştirilemedi: {}", e),
+            match proxy.set_power_mode(mode).await {
+                Ok(resp) => {
+                    if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                        error!("Güç modu ayarlanamadı ({}) -> {}", mode, resp);
+                    } else {
+                        info!("Güç modu ayarlandı ({}) -> {}", mode, resp);
+                    }
+                }
+                Err(e) => error!("Güç modu değiştirilemedi: {}", e),
             }
         }
     }
@@ -386,7 +394,13 @@ async fn set_fan_mode(mode: &str) {
     if let Ok(conn) = get_conn().await {
         if let Ok(proxy) = FanProxy::new(&conn).await {
             match proxy.set_fan_mode(mode).await {
-                Ok(resp) => info!("Fan modu ayarlandı ({}) -> {}", mode, resp),
+                Ok(resp) => {
+                    if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                        error!("Fan modu ayarlanamadı ({}) -> {}", mode, resp);
+                    } else {
+                        info!("Fan modu ayarlandı ({}) -> {}", mode, resp);
+                    }
+                }
                 Err(e) => error!("Fan modu değiştirilemedi: {}", e),
             }
         }
@@ -407,7 +421,7 @@ async fn set_gpu_mode(mode: &str) {
                             .arg("dialog-warning")
                             .spawn();
                     }
-                },
+                }
                 Err(e) => error!("GPU modu değiştirilemedi: {}", e),
             }
         }
@@ -433,12 +447,12 @@ async fn main() {
         .set(tokio::runtime::Handle::current())
         .expect("Failed to initialize runtime handle");
 
-    let initial_power = fetch_power_profile().await.unwrap_or_else(|| "balanced".into());
+    let initial_power = fetch_power_mode().await.unwrap_or_else(|| "work".into());
     let initial_fan = fetch_fan_mode().await.unwrap_or_else(|| "auto".into());
     let initial_gpu = fetch_gpu_mode().await.unwrap_or_else(|| "hybrid".into());
 
     let tray = Tray {
-        power_profile: initial_power,
+        power_mode: initial_power,
         fan_mode: initial_fan,
         gpu_mode: initial_gpu,
     };
@@ -468,13 +482,13 @@ async fn main() {
 
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        let p = fetch_power_profile().await;
+        let p = fetch_power_mode().await;
         let f = fetch_fan_mode().await;
         let g = fetch_gpu_mode().await;
         if p.is_some() || f.is_some() || g.is_some() {
             handle.update(|tray| {
                 if let Some(new_p) = p {
-                    tray.power_profile = new_p;
+                    tray.power_mode = new_p;
                 }
                 if let Some(new_f) = f {
                     tray.fan_mode = new_f;
@@ -484,5 +498,65 @@ async fn main() {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ksni::Tray as _TrayTrait;
+
+    #[test]
+    fn test_tray_power_mode_labels() {
+        let label_work = match "work" {
+            "game" => t("mode_game"),
+            "game-battery" => t("mode_game_battery"),
+            _ => t("mode_work"),
+        };
+        assert_eq!(label_work, "Work");
+
+        let label_game = match "game" {
+            "game" => t("mode_game"),
+            "game-battery" => t("mode_game_battery"),
+            _ => t("mode_work"),
+        };
+        assert_eq!(label_game, "Game");
+
+        let label_gb = match "game-battery" {
+            "game" => t("mode_game"),
+            "game-battery" => t("mode_game_battery"),
+            _ => t("mode_work"),
+        };
+        assert_eq!(label_gb, "Game-Battery");
+    }
+
+    #[test]
+    fn test_fan_mode_options_exclude_ec() {
+        let tray = Tray {
+            power_mode: "work".into(),
+            fan_mode: "auto".into(),
+            gpu_mode: "hybrid".into(),
+        };
+        let items = tray.menu();
+
+        fn check_menu_items_has_ec(items: &[ksni::MenuItem<Tray>]) -> bool {
+            for item in items {
+                if let ksni::MenuItem::SubMenu(sub) = item {
+                    for sub_item in &sub.submenu {
+                        if let ksni::MenuItem::Checkmark(cm) = sub_item {
+                            if cm.label.to_lowercase().contains("ec") {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            false
+        }
+
+        assert!(
+            !check_menu_items_has_ec(&items),
+            "Obsolete 'ec' fan option must not be present in tray menu"
+        );
     }
 }

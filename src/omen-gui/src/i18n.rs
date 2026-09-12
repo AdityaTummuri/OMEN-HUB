@@ -352,11 +352,11 @@ fn translate_tr(key: &'static str) -> &'static str {
         "lightbar_segments" => "Lightbar Segment Renkleri",
 
         // App Profiles Page
-        "app_profiles_desc" => "Aktif uygulamaya göre performans profili ve fan modunu otomatik değiştir",
+        "app_profiles_desc" => "Aktif uygulamaları izler ve sistem etkinliğini kaydeder (otomatik donanım geçişi devre dışıdır)",
         "enable_profiles" => "Uygulama Profillerini Etkinleştir",
-        "enable_profiles_sub" => "Odak penceresi değiştiğinde profil otomatik uygulanır",
+        "enable_profiles_sub" => "Uygulama algılama ve etkinlik günlüğünü etkinleştir (donanım modlarını otomatik değiştirmez)",
         "defined_profiles" => "Tanımlı Profiller",
-        "defined_profiles_desc" => "Uygulama açıldığında otomatik geçiş yapılacak profiller",
+        "defined_profiles_desc" => "Etkinlik takibi ve gözlem için tanımlanmış uygulamalar",
         "add_profile" => "Profil Ekle",
         "add_profile_sub" => "Yeni bir uygulama profili oluştur",
         "detect_method" => "Algılama Yöntemi",
@@ -709,11 +709,11 @@ fn translate_en(key: &'static str) -> &'static str {
         "lightbar_segments" => "Lightbar Segment Colors",
 
         // App Profiles Page
-        "app_profiles_desc" => "Automatically switch performance profile and fan mode based on active application",
+        "app_profiles_desc" => "Monitors and tracks active applications (automatic hardware switching is disabled)",
         "enable_profiles" => "Enable App Profiles",
-        "enable_profiles_sub" => "Profile applies automatically when window focus changes",
+        "enable_profiles_sub" => "Enable application detection and activity logging (does not automatically change hardware modes)",
         "defined_profiles" => "Configured Profiles",
-        "defined_profiles_desc" => "Profiles activated when the corresponding application is focused",
+        "defined_profiles_desc" => "Configured applications for activity tracking and observation",
         "add_profile" => "Add Profile",
         "add_profile_sub" => "Create a new application profile",
         "detect_method" => "Detection Method",

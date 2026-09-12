@@ -192,6 +192,7 @@ async fn get_conn() -> Result<zbus::Connection, zbus::Error> {
 
 // ── Synchronous Wrappers for UI Callbacks ────────────────────────────────────
 
+#[allow(dead_code)]
 pub fn set_power_profile_sync(profile: String) {
     let rt = get_runtime();
     rt.spawn(async move {
@@ -205,13 +206,37 @@ pub fn set_power_profile_sync(profile: String) {
     });
 }
 
+pub fn set_power_mode_sync(mode: &str) {
+    let mode_str = mode.to_string();
+    let rt = get_runtime();
+    rt.spawn(async move {
+        if let Ok(conn) = get_conn().await {
+            if let Ok(proxy) = PowerProxy::new(&conn).await {
+                match proxy.set_power_mode(&mode_str).await {
+                    Ok(resp) => {
+                        if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                            eprintln!("set_power_mode error: {}", resp);
+                        }
+                    }
+                    Err(e) => eprintln!("D-Bus call failed: {}", e),
+                }
+            }
+        }
+    });
+}
+
 pub fn set_fan_mode_sync(mode: String) {
     let rt = get_runtime();
     rt.spawn(async move {
         if let Ok(conn) = get_conn().await {
             if let Ok(proxy) = FanProxy::new(&conn).await {
-                if let Err(e) = proxy.set_fan_mode(&mode).await {
-                    eprintln!("D-Bus call failed: {}", e);
+                match proxy.set_fan_mode(&mode).await {
+                    Ok(resp) => {
+                        if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                            eprintln!("set_fan_mode error: {}", resp);
+                        }
+                    }
+                    Err(e) => eprintln!("D-Bus call failed: {}", e),
                 }
             }
         }
@@ -297,7 +322,14 @@ pub fn set_mode_sync(mode_str: &str, speed_val: i32) {
     rt.spawn(async move {
         if let Ok(conn) = get_conn().await {
             if let Ok(proxy) = RgbProxy::new(&conn).await {
-                let _ = proxy.set_mode(&mode, speed_val).await;
+                match proxy.set_mode(&mode, speed_val).await {
+                    Ok(resp) => {
+                        if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                            eprintln!("set_mode error: {}", resp);
+                        }
+                    }
+                    Err(e) => eprintln!("D-Bus call failed: {}", e),
+                }
             }
         }
     });
@@ -309,9 +341,17 @@ pub fn set_global_sync(power_val: bool, brightness_val: i32, direction_str: &str
     rt.spawn(async move {
         if let Ok(conn) = get_conn().await {
             if let Ok(proxy) = RgbProxy::new(&conn).await {
-                let _ = proxy
+                match proxy
                     .set_global(power_val, brightness_val, &direction)
-                    .await;
+                    .await
+                {
+                    Ok(resp) => {
+                        if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                            eprintln!("set_global error: {}", resp);
+                        }
+                    }
+                    Err(e) => eprintln!("D-Bus call failed: {}", e),
+                }
             }
         }
     });
@@ -353,6 +393,13 @@ static TELEMETRY_SENDERS: OnceLock<std::sync::Mutex<Vec<glib::Sender<SystemStats
     OnceLock::new();
 static TELEMETRY_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+pub fn compute_next_backoff(
+    current: std::time::Duration,
+    max: std::time::Duration,
+) -> std::time::Duration {
+    (current * 2).min(max)
+}
+
 #[allow(deprecated)]
 pub fn subscribe_telemetry<F>(mut callback: F)
 where
@@ -370,9 +417,21 @@ where
     if !TELEMETRY_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
         let rt = get_runtime();
         rt.spawn(async move {
-            if let Ok(conn) = get_conn().await {
-                if let Ok(proxy) = SysMonProxy::new(&conn).await {
-                    if let Ok(mut stream) = proxy.receive_telemetry_updated().await {
+            let mut backoff = std::time::Duration::from_millis(500);
+            const MAX_BACKOFF: std::time::Duration = std::time::Duration::from_secs(5);
+            loop {
+                let sub_res = async {
+                    let conn = get_conn().await?;
+                    let proxy = SysMonProxy::new(&conn).await?;
+                    let stream = proxy.receive_telemetry_updated().await?;
+                    Ok::<_, zbus::Error>(stream)
+                }
+                .await;
+
+                match sub_res {
+                    Ok(mut stream) => {
+                        // Reset backoff on successful subscription
+                        backoff = std::time::Duration::from_millis(500);
                         use zbus::export::futures_util::StreamExt;
                         while let Some(signal) = stream.next().await {
                             if let Ok(args) = signal.args() {
@@ -390,6 +449,14 @@ where
                                 }
                             }
                         }
+                        // Stream closed (e.g. daemon restart/disconnect). Wait before reconnecting.
+                        tokio::time::sleep(backoff).await;
+                        backoff = compute_next_backoff(backoff, MAX_BACKOFF);
+                    }
+                    Err(_) => {
+                        // Failed to connect / proxy / receive stream. Wait with backoff.
+                        tokio::time::sleep(backoff).await;
+                        backoff = compute_next_backoff(backoff, MAX_BACKOFF);
                     }
                 }
             }
@@ -639,8 +706,13 @@ pub fn set_gpu_mode_sync(mode: String) {
     rt.spawn(async move {
         if let Ok(conn) = get_conn().await {
             if let Ok(proxy) = MuxProxy::new(&conn).await {
-                if let Err(e) = proxy.set_gpu_mode(&mode).await {
-                    eprintln!("D-Bus call failed: {}", e);
+                match proxy.set_gpu_mode(&mode).await {
+                    Ok(resp) => {
+                        if resp.starts_with("FAIL") || resp.starts_with("ERR") {
+                            eprintln!("set_gpu_mode error: {}", resp);
+                        }
+                    }
+                    Err(e) => eprintln!("D-Bus call failed: {}", e),
                 }
             }
         }
@@ -842,5 +914,21 @@ mod tests {
         assert_eq!(def_unknown.platform_profile, "unknown");
         assert_eq!(def_unknown.epp, "unknown");
         assert!(!def_unknown.boost);
+    }
+
+    #[test]
+    fn test_compute_next_backoff() {
+        let max = std::time::Duration::from_secs(5);
+        let b1 = std::time::Duration::from_millis(500);
+        let b2 = compute_next_backoff(b1, max);
+        assert_eq!(b2, std::time::Duration::from_millis(1000));
+        let b3 = compute_next_backoff(b2, max);
+        assert_eq!(b3, std::time::Duration::from_millis(2000));
+        let b4 = compute_next_backoff(b3, max);
+        assert_eq!(b4, std::time::Duration::from_millis(4000));
+        let b5 = compute_next_backoff(b4, max);
+        assert_eq!(b5, std::time::Duration::from_millis(5000));
+        let b6 = compute_next_backoff(b5, max);
+        assert_eq!(b6, std::time::Duration::from_millis(5000));
     }
 }

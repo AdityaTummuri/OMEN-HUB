@@ -104,13 +104,13 @@ fn apply_startup_profile() {
         if let Ok(json_str) = std::fs::read_to_string(&path) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
                 if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
-                    let profile_name = match sp {
-                        1 => "Quiet",
-                        2 => "Default",
-                        3 => "Performance",
+                    let mode_name = match sp {
+                        1 => "game-battery",
+                        2 => "work",
+                        3 => "game",
                         _ => return, // 0 = Last used, do nothing
                     };
-                    crate::daemon_client::set_power_profile_sync(profile_name.to_string());
+                    crate::daemon_client::set_power_mode_sync(mode_name);
                 }
             }
         }
