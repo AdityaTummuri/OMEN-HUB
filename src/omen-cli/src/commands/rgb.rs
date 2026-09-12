@@ -1,8 +1,8 @@
-use clap::Subcommand;
-use zbus::Connection;
-use anyhow::Result;
 use crate::dbus_proxy::RgbProxy;
+use anyhow::Result;
+use clap::Subcommand;
 use comfy_table::Table;
+use zbus::Connection;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum RgbCommand {
@@ -13,9 +13,9 @@ pub enum RgbCommand {
         /// Animation speed (1 to 100)
         speed: i32,
     },
-    /// Set static color for a specific zone (0 to 7, or 8 for all zones)
+    /// Set static color for a specific zone (0: Left, 1: Middle, 2: Right, 3: WASD, or 8 for all)
     SetColor {
-        /// Zone ID (0 to 7, or 8 for all)
+        /// Zone ID (0: Left, 1: Middle, 2: Right, 3: WASD, or 8 for all)
         zone: i32,
         /// Hex color code (e.g. FF0000)
         hex: String,
@@ -50,7 +50,11 @@ pub async fn handle(cmd: &RgbCommand, conn: &Connection) -> Result<()> {
             let res = proxy.set_color(*zone, hex).await?;
             println!("Response: {}", res);
         }
-        RgbCommand::SetGlobal { power, brightness, direction } => {
+        RgbCommand::SetGlobal {
+            power,
+            brightness,
+            direction,
+        } => {
             let res = proxy.set_global(*power, *brightness, direction).await?;
             println!("Response: {}", res);
         }

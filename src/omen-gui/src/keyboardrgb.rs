@@ -197,22 +197,22 @@ fn build_interactive_keyboard(
     global_color_btn.set_widget_name("global_color_btn");
     
     let c1_label = gtk::Label::builder().label(i18n::t("kb_color_1")).css_classes(["dim-label"]).build();
-    let c1_btn = gtk::Button::builder().width_request(40).height_request(24).build();
+    let c1_btn = gtk::Button::builder().width_request(40).height_request(24).tooltip_text(i18n::t("kb_color_1")).build();
     c1_btn.add_css_class("circular");
     c1_btn.set_widget_name("c1_btn");
 
     let c2_label = gtk::Label::builder().label(i18n::t("kb_color_2")).css_classes(["dim-label"]).build();
-    let c2_btn = gtk::Button::builder().width_request(40).height_request(24).build();
+    let c2_btn = gtk::Button::builder().width_request(40).height_request(24).tooltip_text(i18n::t("kb_color_2")).build();
     c2_btn.add_css_class("circular");
     c2_btn.set_widget_name("c2_btn");
 
     let c3_label = gtk::Label::builder().label(i18n::t("kb_color_3")).css_classes(["dim-label"]).build();
-    let c3_btn = gtk::Button::builder().width_request(40).height_request(24).build();
+    let c3_btn = gtk::Button::builder().width_request(40).height_request(24).tooltip_text(i18n::t("kb_color_3")).build();
     c3_btn.add_css_class("circular");
     c3_btn.set_widget_name("c3_btn");
 
     let c4_label = gtk::Label::builder().label(i18n::t("kb_color_4")).css_classes(["dim-label"]).build();
-    let c4_btn = gtk::Button::builder().width_request(40).height_request(24).build();
+    let c4_btn = gtk::Button::builder().width_request(40).height_request(24).tooltip_text(i18n::t("kb_color_4")).build();
     c4_btn.add_css_class("circular");
     c4_btn.set_widget_name("c4_btn");
 

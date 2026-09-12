@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use glob::glob;
+use log::{error, info, warn};
 /// RGB LED service - matches Python rgb_service.py feature-for-feature.
 ///
 /// D-Bus interface: com.yyl.hpmanager.rgb (backward compat) +
@@ -16,19 +18,27 @@
 ///   Ping()               -> resp: s
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
+use std::path::Path;
 use std::sync::Arc;
+use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use zbus::interface;
-use log::{info, warn, error};
-use std::path::Path;
-use glob::glob;
-use tokio::io::AsyncReadExt;
-use std::fs::File;
 
 // Valid modes matching Python VALID_LIGHT_MODES
 const VALID_MODES: &[&str] = &[
-    "static", "breathing", "wave", "cycle", "rainbow",
-    "pulse", "chase", "sparkle", "candle", "aurora", "disco", "gradient",
+    "static",
+    "breathing",
+    "wave",
+    "cycle",
+    "rainbow",
+    "pulse",
+    "chase",
+    "sparkle",
+    "candle",
+    "aurora",
+    "disco",
+    "gradient",
 ];
 const VALID_DIRECTIONS: &[&str] = &["ltr", "rtl"];
 
@@ -73,16 +83,29 @@ impl RgbHardware {
         let custom_path = "/sys/devices/platform/hp-omen-extra";
         let hp_path2 = "/sys/devices/platform/hp_omen_extra";
         let board_id = std::fs::read_to_string("/sys/class/dmi/id/board_name").unwrap_or_default();
-        let prod_name = std::fs::read_to_string("/sys/class/dmi/id/product_name").unwrap_or_default();
+        let prod_name =
+            std::fs::read_to_string("/sys/class/dmi/id/product_name").unwrap_or_default();
         let specs = crate::sysmon::get_hardware_specs();
         let caps = crate::capabilities::detect(board_id.trim(), prod_name.trim(), &specs.cpu_spec);
         let max_zones = if caps.has_four_zone_rgb { 4 } else { 8 };
 
         if Path::new(new_path).exists() {
             // Count zones for new driver (8 for per-key models, else 4)
-            let mut zone_count = if Path::new("/sys/devices/platform/omen-rgb-keyboard/rgb_zones/zone04").exists() { 8 } else { 4 };
-            if zone_count > max_zones { zone_count = max_zones; }
-            return Self { driver_path: Some(new_path.to_string()), is_new_driver: true, zone_count, available: true };
+            let mut zone_count =
+                if Path::new("/sys/devices/platform/omen-rgb-keyboard/rgb_zones/zone04").exists() {
+                    8
+                } else {
+                    4
+                };
+            if zone_count > max_zones {
+                zone_count = max_zones;
+            }
+            return Self {
+                driver_path: Some(new_path.to_string()),
+                is_new_driver: true,
+                zone_count,
+                available: true,
+            };
         }
         for p in [custom_path, hp_path2] {
             if Path::new(p).exists() {
@@ -97,63 +120,67 @@ impl RgbHardware {
                 let mut zone_count = if caps.has_four_zone_rgb {
                     4
                 } else if Path::new(&format!("{}/zone4", p)).exists()
-                    || Path::new(&format!("{}/zone04", p)).exists() { 8 } else { 4 };
-                if zone_count > max_zones { zone_count = max_zones; }
-                return Self { driver_path: Some(p.to_string()), is_new_driver: false, zone_count, available: true };
+                    || Path::new(&format!("{}/zone04", p)).exists()
+                {
+                    8
+                } else {
+                    4
+                };
+                if zone_count > max_zones {
+                    zone_count = max_zones;
+                }
+                return Self {
+                    driver_path: Some(p.to_string()),
+                    is_new_driver: false,
+                    zone_count,
+                    available: true,
+                };
             }
         }
         // Try keyboard brightness LEDs as fallback
         if let Ok(mut entries) = glob("/sys/class/leds/hp::kbd_backlight*") {
             if let Some(Ok(path)) = entries.next() {
-                return Self { driver_path: Some(path.to_string_lossy().to_string()), is_new_driver: false, zone_count: 4, available: true };
+                return Self {
+                    driver_path: Some(path.to_string_lossy().to_string()),
+                    is_new_driver: false,
+                    zone_count: 4,
+                    available: true,
+                };
             }
         }
-        Self { driver_path: None, is_new_driver: false, zone_count: 4, available: false }
+        Self {
+            driver_path: None,
+            is_new_driver: false,
+            zone_count: 4,
+            available: false,
+        }
     }
 
-    fn write_zone(&self, zone: usize, hex_color: &str) {
-        let Some(ref base) = self.driver_path else { return; };
-        if zone > 7 { return; }
-
-        // Hardware zone remap differs by driver generation — the physical
-        // wiring order isn't the same between the new omen-rgb-keyboard
-        // driver and the legacy hp-omen-extra/hp_omen_extra driver, so
-        // each needs its own verified table rather than sharing one.
-        let actual_zone = if self.is_new_driver && self.zone_count == 4 {
-            // omen-rgb-keyboard, 4-zone: upstream-verified mapping.
-            match zone {
-                0 => 2, // Left
-                1 => 1, // Middle
-                2 => 0, // Right
-                _ => 7, // WASD
-            }
-        } else if !self.is_new_driver && self.zone_count == 4 {
-            // hp-omen-extra/hp_omen_extra, 4-zone: empirically verified
-            // against real hardware (hardware zone0=Right, zone1=Middle,
-            // zone2=Left, zone3=WASD) — upstream's 4af2522 dropped this
-            // remap for the legacy driver entirely, which un-inverted
-            // zones for boards whose raw wiring isn't already sequential.
-            match zone {
-                0 => 2, // Software Left   -> Hardware Left (2)
-                1 => 1, // Software Middle -> Hardware Middle (1)
-                2 => 0, // Software Right  -> Hardware Right (0)
-                3 => 3, // Software WASD   -> Hardware WASD (3)
-                z => z,
-            }
-        } else {
-            zone
+    fn write_zone(&self, zone: usize, hex_color: &str) -> Result<(), String> {
+        let Some(ref base) = self.driver_path else {
+            return Err("RGB hardware driver path unavailable".to_string());
         };
+
+        let clean_hex = hex_color.trim_start_matches('#');
+        if clean_hex.len() != 6 || !clean_hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(format!("Invalid hex color '{}'", hex_color));
+        }
+
+        let actual_zone = map_logical_to_hardware_zone(zone, self.zone_count, self.is_new_driver)?;
         let filename = if self.is_new_driver {
             format!("zone{:02}", actual_zone)
         } else {
             format!("zone{}", actual_zone)
         };
         let path = format!("{}/{}", base, filename);
-        let _ = std::fs::write(&path, hex_color);
+        std::fs::write(&path, clean_hex)
+            .map_err(|e| format!("Failed to write color '{}' to {}: {}", clean_hex, path, e))
     }
 
     fn write_all(&self, hex_color: &str) {
-        let Some(ref base) = self.driver_path else { return; };
+        let Some(ref base) = self.driver_path else {
+            return;
+        };
         if self.is_new_driver {
             let all_path = format!("{}/all", base);
             if Path::new(&all_path).exists() {
@@ -162,20 +189,36 @@ impl RgbHardware {
             }
         }
         for i in 0..self.zone_count as usize {
-            self.write_zone(i, hex_color);
+            if let Err(e) = self.write_zone(i, hex_color) {
+                warn!("write_all: zone {} failed: {}", i, e);
+            }
         }
     }
 
     fn write_brightness(&self, value: u32) {
-        let Some(ref base) = self.driver_path else { return; };
+        let Some(ref base) = self.driver_path else {
+            return;
+        };
         let path = format!("{}/brightness", base);
-        if !Path::new(&path).exists() { return; }
-        let val_str = if self.is_new_driver { value.to_string() } else { if value > 0 { "1".to_string() } else { "0".to_string() } };
+        if !Path::new(&path).exists() {
+            return;
+        }
+        let val_str = if self.is_new_driver {
+            value.to_string()
+        } else {
+            if value > 0 {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            }
+        };
         let _ = std::fs::write(&path, val_str);
     }
 
     fn write_win_lock(&self, locked: bool) {
-        let Some(ref base) = self.driver_path else { return; };
+        let Some(ref base) = self.driver_path else {
+            return;
+        };
         let path = format!("{}/win_lock", base);
         if Path::new(&path).exists() {
             let _ = std::fs::write(&path, if locked { "1" } else { "0" });
@@ -183,12 +226,19 @@ impl RgbHardware {
     }
 
     fn write_mode(&self, mode: &str, speed: u32) {
-        if !self.is_new_driver { return; }
-        let Some(ref base) = self.driver_path else { return; };
+        if !self.is_new_driver {
+            return;
+        }
+        let Some(ref base) = self.driver_path else {
+            return;
+        };
         let hw_mode = if mode == "cycle" { "rainbow" } else { mode };
         let _ = std::fs::write(format!("{}/animation_mode", base), hw_mode);
         let mapped_speed = (speed / 10).clamp(1, 10);
-        let _ = std::fs::write(format!("{}/animation_speed", base), mapped_speed.to_string());
+        let _ = std::fs::write(
+            format!("{}/animation_speed", base),
+            mapped_speed.to_string(),
+        );
     }
 }
 
@@ -220,7 +270,10 @@ impl HidPerKeyBackend {
 
     fn new() -> Self {
         let (hidraw_path, device_pid) = Self::find_device();
-        let backend = Self { hidraw_path, device_pid };
+        let backend = Self {
+            hidraw_path,
+            device_pid,
+        };
         if backend.is_available() {
             info!("Initialized HidPerKeyBackend on {:?}", backend.hidraw_path);
             backend.send_enter_per_key_mode(100);
@@ -241,8 +294,8 @@ impl HidPerKeyBackend {
                                     u16::from_str_radix(parts[1], 16),
                                     u16::from_str_radix(parts[2], 16),
                                 ) {
-                                    let is_hp = vid == Self::HP_VID
-                                        && Self::HP_KNOWN_PIDS.contains(&pid);
+                                    let is_hp =
+                                        vid == Self::HP_VID && Self::HP_KNOWN_PIDS.contains(&pid);
                                     let is_darfon = vid == Self::DARFON_VID
                                         && Self::DARFON_KNOWN_PIDS.contains(&pid);
                                     if is_hp || is_darfon {
@@ -310,7 +363,8 @@ impl HidPerKeyBackend {
     }
 
     fn write_per_key_colors(&self, key_colors: &[(u8, u8, u8)]) -> bool {
-        let segment_count = (key_colors.len() + Self::KEYS_PER_SEGMENT - 1) / Self::KEYS_PER_SEGMENT;
+        let segment_count =
+            (key_colors.len() + Self::KEYS_PER_SEGMENT - 1) / Self::KEYS_PER_SEGMENT;
         for seg in 0..segment_count {
             let mut packet = self.build_packet(Self::SUB_SET_COLORS);
             packet[3] = seg as u8;
@@ -413,7 +467,9 @@ impl RgbConfig {
                 cfg.mode = "static".to_string();
             }
             // Ensure 8 colors, validate hex
-            cfg.colors = cfg.colors.into_iter()
+            cfg.colors = cfg
+                .colors
+                .into_iter()
                 .filter(|c| c.len() == 6 && c.chars().all(|ch| ch.is_ascii_hexdigit()))
                 .take(8)
                 .collect();
@@ -460,7 +516,10 @@ impl RgbService {
         let config = RgbConfig::load();
         let hw = RgbHardware::detect_with_override(config.zone_count_override);
         if hw.available {
-            info!("RGB: Driver at {:?} (new_driver={}, zone_count={})", hw.driver_path, hw.is_new_driver, hw.zone_count);
+            info!(
+                "RGB: Driver at {:?} (new_driver={}, zone_count={})",
+                hw.driver_path, hw.is_new_driver, hw.zone_count
+            );
         } else {
             warn!("RGB: No RGB hardware driver found");
         }
@@ -469,17 +528,27 @@ impl RgbService {
         let hid_per_key = HidPerKeyBackend::new();
         let wizard = Arc::new(crate::hid_wizard::HidPerKeyWizard::new());
         let evdev_monitor = crate::evdev_monitor::EvdevMonitor::new();
-        
+
         let mut desktop_rgb = crate::desktop_rgb::DesktopRgbController::new();
         if let Err(e) = desktop_rgb.initialize() {
             warn!("RGB: Desktop RGB not initialized: {}", e);
         }
 
         let inner = Arc::new(Mutex::new(RgbInner {
-            hw, hid_per_key, config, per_key_map, color_cache: HashMap::new(), anim_step: 0.0, wizard, evdev_monitor, desktop_rgb,
+            hw,
+            hid_per_key,
+            config,
+            per_key_map,
+            color_cache: HashMap::new(),
+            anim_step: 0.0,
+            wizard,
+            evdev_monitor,
+            desktop_rgb,
         }));
 
-        let svc = Self { inner: inner.clone() };
+        let svc = Self {
+            inner: inner.clone(),
+        };
 
         // Apply initial state to hardware
         Self::apply_state(inner.clone()).await;
@@ -499,7 +568,7 @@ impl RgbService {
         tokio::spawn(async move {
             Self::software_animation_loop(anim_inner).await;
         });
-        
+
         // Spawn uleds listener loop
         let uleds_inner = inner.clone();
         tokio::spawn(async move {
@@ -547,7 +616,7 @@ impl RgbService {
                 std::mem::size_of::<UledsUserDev>(),
             )
         };
-        
+
         use std::io::Write;
         let mut std_file = file;
         if let Err(e) = std_file.write_all(struct_bytes) {
@@ -595,22 +664,28 @@ impl RgbService {
 
     async fn software_animation_loop(inner: Arc<Mutex<RgbInner>>) {
         let mut last_per_key_colors: Vec<String> = Vec::new();
+        let mut sleep_ms = 100u64;
         loop {
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await; // ~20Hz
+            tokio::time::sleep(tokio::time::Duration::from_millis(sleep_ms)).await;
 
             let mut g = inner.lock().await;
             let has_per_key = g.hid_per_key.is_available();
             let has_old_sysfs = g.hw.available && !g.hw.is_new_driver;
 
+            // 100ms (10Hz) for legacy WMI sysfs to reduce ACPI load; 50ms (20Hz) for direct USB per-key
+            sleep_ms = if has_per_key { 50 } else { 100 };
+
             // Only activate evdev key monitoring when interactive effects (reactive, ripple) are chosen
-            let is_interactive = g.config.power && has_per_key && (g.config.mode == "reactive" || g.config.mode == "ripple");
+            let is_interactive = g.config.power
+                && has_per_key
+                && (g.config.mode == "reactive" || g.config.mode == "ripple");
             g.evdev_monitor.set_active(is_interactive);
 
             if !has_per_key && !has_old_sysfs {
                 continue;
             }
-            if !g.config.power || g.config.mode == "static" || g.config.mode == "per_key_custom" { 
-                continue; 
+            if !g.config.power || g.config.mode == "static" || g.config.mode == "per_key_custom" {
+                continue;
             }
 
             let brightness = g.config.brightness;
@@ -620,12 +695,14 @@ impl RgbService {
             let colors = g.config.colors.clone();
             let mode = g.config.mode.clone();
 
-            let step_inc = (speed as f64 / 100.0) * 0.25;
+            let step_inc = (speed as f64 / 100.0) * (0.25 * (sleep_ms as f64 / 50.0));
             g.anim_step += step_inc;
             let step = g.anim_step;
 
-            let (r1, g1, b1) = parse_hex_color(colors.get(0).map(|s| s.as_str()).unwrap_or("FF0000"));
-            let (r2, g2, b2) = parse_hex_color(colors.get(1).map(|s| s.as_str()).unwrap_or("0000FF"));
+            let (r1, g1, b1) =
+                parse_hex_color(colors.get(0).map(|s| s.as_str()).unwrap_or("FF0000"));
+            let (r2, g2, b2) =
+                parse_hex_color(colors.get(1).map(|s| s.as_str()).unwrap_or("0000FF"));
 
             if has_per_key {
                 let mut out_colors = Vec::with_capacity(104);
@@ -646,10 +723,13 @@ impl RgbService {
                         let mut max_intensity = 0.0;
                         for key in &recent_keys {
                             let dist = ((key.x - x).powi(2) + (key.y - y).powi(2)).sqrt();
-                            if dist < 1.0 { // exact key
+                            if dist < 1.0 {
+                                // exact key
                                 let age = now.duration_since(key.timestamp).as_secs_f64();
                                 let intensity = (1.0 - (age * 1.5)).clamp(0.0, 1.0); // fade out in ~0.66s
-                                if intensity > max_intensity { max_intensity = intensity; }
+                                if intensity > max_intensity {
+                                    max_intensity = intensity;
+                                }
                             }
                         }
                         r_final = r1 as f64 * max_intensity;
@@ -673,15 +753,19 @@ impl RgbService {
                         g_final = g_final.clamp(0.0, 255.0);
                         b_final = b_final.clamp(0.0, 255.0);
                     } else if mode == "starlight" {
-                        use std::hash::{Hash, Hasher};
                         use std::collections::hash_map::DefaultHasher;
+                        use std::hash::{Hash, Hasher};
                         let mut h = DefaultHasher::new();
                         let slow_step = (step * 2.0) as u64;
                         (slow_step, i).hash(&mut h);
                         if h.finish() % 20 == 0 {
-                            r_final = r1 as f64; g_final = g1 as f64; b_final = b1 as f64;
+                            r_final = r1 as f64;
+                            g_final = g1 as f64;
+                            b_final = b1 as f64;
                         } else {
-                            r_final = 0.0; g_final = 0.0; b_final = 0.0;
+                            r_final = 0.0;
+                            g_final = 0.0;
+                            b_final = 0.0;
                         }
                     } else if mode == "raindrop" {
                         let speed_factor = step * 10.0;
@@ -689,21 +773,34 @@ impl RgbService {
                         let drop_pos = (speed_factor + (col * 3.7)) % 10.0; // random offset per column
                         let dist = (y - drop_pos).abs();
                         if dist < 1.0 {
-                            r_final = r1 as f64; g_final = g1 as f64; b_final = b1 as f64;
+                            r_final = r1 as f64;
+                            g_final = g1 as f64;
+                            b_final = b1 as f64;
                         }
                     } else {
                         // wave, cycle, breathing
-                        let eff_idx = if direction == "ltr" { i % 15 } else if direction == "rtl" { 14 - (i % 15) } else { i };
-                        let (r_c, g_c, b_c) = compute_anim_color(&mode, step, eff_idx, 15, r1, g1, b1, r2, g2, b2);
-                        r_final = r_c as f64; g_final = g_c as f64; b_final = b_c as f64;
+                        let eff_idx = if direction == "ltr" {
+                            i % 15
+                        } else if direction == "rtl" {
+                            14 - (i % 15)
+                        } else {
+                            i
+                        };
+                        let (r_c, g_c, b_c) =
+                            compute_anim_color(&mode, step, eff_idx, 15, r1, g1, b1, r2, g2, b2);
+                        r_final = r_c as f64;
+                        g_final = g_c as f64;
+                        b_final = b_c as f64;
                     }
 
-                    out_colors.push(format!("{:02X}{:02X}{:02X}", 
-                        (r_final * scaler) as u8, 
-                        (g_final * scaler) as u8, 
-                        (b_final * scaler) as u8));
+                    out_colors.push(format!(
+                        "{:02X}{:02X}{:02X}",
+                        (r_final * scaler) as u8,
+                        (g_final * scaler) as u8,
+                        (b_final * scaler) as u8
+                    ));
                 }
-                
+
                 if out_colors != last_per_key_colors {
                     g.hid_per_key.set_zone_colors(&out_colors);
                     last_per_key_colors = out_colors;
@@ -713,8 +810,14 @@ impl RgbService {
             if has_old_sysfs {
                 let zone_count = g.hw.zone_count as usize;
                 for i in 0..zone_count {
-                    let eff_idx = if direction == "ltr" { i } else { zone_count - 1 - i };
-                    let (r, g_c, b) = compute_anim_color(&mode, step, eff_idx, zone_count, r1, g1, b1, r2, g2, b2);
+                    let eff_idx = if direction == "ltr" {
+                        i
+                    } else {
+                        zone_count - 1 - i
+                    };
+                    let (r, g_c, b) = compute_anim_color(
+                        &mode, step, eff_idx, zone_count, r1, g1, b1, r2, g2, b2,
+                    );
                     let scaled = format!(
                         "{:02X}{:02X}{:02X}",
                         ((r as f64) * scaler) as u8,
@@ -722,7 +825,9 @@ impl RgbService {
                         ((b as f64) * scaler) as u8
                     );
                     if g.color_cache.get(&i) != Some(&scaled) {
-                        g.hw.write_zone(i, &scaled);
+                        if let Err(e) = g.hw.write_zone(i, &scaled) {
+                            warn!("software_animation_loop: write_zone({}) failed: {}", i, e);
+                        }
                         g.color_cache.insert(i, scaled);
                     }
                 }
@@ -730,13 +835,14 @@ impl RgbService {
         }
     }
     async fn apply_state(inner: Arc<Mutex<RgbInner>>) {
-        let g = inner.lock().await;
+        let mut g = inner.lock().await;
+        g.color_cache.clear();
 
-        let power     = g.config.power;
+        let power = g.config.power;
         let brightness = g.config.brightness;
-        let mode      = g.config.mode.clone();
-        let speed     = g.config.speed;
-        let colors    = g.config.colors.clone();
+        let mode = g.config.mode.clone();
+        let speed = g.config.speed;
+        let colors = g.config.colors.clone();
 
         // ── HID per-key backend (USB direct) ────────────────────────────────────
         // Runs regardless of whether the sysfs driver is present, since HID and
@@ -744,7 +850,8 @@ impl RgbService {
         if g.hid_per_key.is_available() {
             if !power || brightness == 0 {
                 g.hid_per_key.send_enter_per_key_mode(0);
-                g.hid_per_key.set_zone_colors(&vec!["000000".to_string(); 8]);
+                g.hid_per_key
+                    .set_zone_colors(&vec!["000000".to_string(); 8]);
             } else {
                 g.hid_per_key.send_enter_per_key_mode(brightness);
                 if mode == "static" {
@@ -752,23 +859,32 @@ impl RgbService {
                 }
             }
         }
-        
+
         // ── Desktop RGB ─────────────────────────────────────────────────────────
         if g.desktop_rgb.is_available() {
             if !power || brightness == 0 {
-                let _ = g.desktop_rgb.set_static_colors(&[(0,0,0); 7], 0);
+                let _ = g.desktop_rgb.set_static_colors(&[(0, 0, 0); 7], 0);
             } else if mode == "static" {
                 let mut parsed_colors = Vec::new();
                 for i in 0..7 {
-                    let hex = colors.get(10 + i).cloned().unwrap_or_else(|| colors.get(0).cloned().unwrap_or_else(|| "FF0000".to_string()));
+                    let hex = colors.get(10 + i).cloned().unwrap_or_else(|| {
+                        colors
+                            .get(0)
+                            .cloned()
+                            .unwrap_or_else(|| "FF0000".to_string())
+                    });
                     parsed_colors.push(parse_hex_color(&hex));
                 }
-                let _ = g.desktop_rgb.set_static_colors(&parsed_colors, brightness as u8);
+                let _ = g
+                    .desktop_rgb
+                    .set_static_colors(&parsed_colors, brightness as u8);
             }
         }
 
         // ── Standard sysfs driver ───────────────────────────────────────────────
-        if !g.hw.available { return; }
+        if !g.hw.available {
+            return;
+        }
 
         if !power || brightness == 0 {
             g.hw.write_brightness(0);
@@ -782,7 +898,9 @@ impl RgbService {
             if mode == "static" {
                 for i in 0..g.hw.zone_count as usize {
                     let hex = colors.get(i).cloned().unwrap_or_else(|| colors[0].clone());
-                    g.hw.write_zone(i, &hex);
+                    if let Err(e) = g.hw.write_zone(i, &hex) {
+                        warn!("apply_state: write_zone({}) failed: {}", i, e);
+                    }
                 }
             }
         } else {
@@ -792,7 +910,9 @@ impl RgbService {
                 for i in 0..g.hw.zone_count as usize {
                     let raw = colors.get(i).cloned().unwrap_or_else(|| colors[0].clone());
                     let scaled = scale_hex_color(&raw, scaler);
-                    g.hw.write_zone(i, &scaled);
+                    if let Err(e) = g.hw.write_zone(i, &scaled) {
+                        warn!("apply_state: write_zone({}) failed: {}", i, e);
+                    }
                 }
             }
         }
@@ -808,26 +928,47 @@ impl RgbService {
     async fn set_color(&self, zone_val: i32, hex_color: String) -> String {
         let hex = hex_color.trim_start_matches('#').to_uppercase();
         if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-            return "FAIL".to_string();
-        }
-        if zone_val != 8 && !(0..17).contains(&zone_val) {
-            return "FAIL".to_string();
+            return "FAIL: invalid hex color".to_string();
         }
         {
             let mut g = self.inner.lock().await;
+            let zone_count = g.hw.zone_count as i32;
+
+            if zone_val != 8 {
+                if zone_val >= 10 {
+                    if !g.desktop_rgb.is_available() {
+                        return "FAIL: desktop RGB chassis lighting not available on this machine"
+                            .to_string();
+                    }
+                    if zone_val > 16 {
+                        return "FAIL: invalid desktop RGB zone index".to_string();
+                    }
+                } else if zone_val < 0 || zone_val >= zone_count {
+                    return format!(
+                        "FAIL: invalid zone index {} for detected hardware (valid keyboard zones: 0..{}, or 8 for all)",
+                        zone_val,
+                        zone_count.saturating_sub(1)
+                    );
+                }
+            }
+
             g.config.mode = "static".to_string();
             g.config.power = true;
             if g.config.colors.len() < 17 {
                 g.config.colors.resize(17, "FF0000".to_string());
             }
             if zone_val == 8 {
-                for i in 0..8 { g.config.colors[i] = hex.clone(); }
+                for i in 0..g.hw.zone_count as usize {
+                    if i < g.config.colors.len() {
+                        g.config.colors[i] = hex.clone();
+                    }
+                }
             } else {
                 g.config.colors[zone_val as usize] = hex.clone();
             }
             g.config.save();
         }
-        
+
         Self::apply_state(self.inner.clone()).await;
         "OK".to_string()
     }
@@ -844,13 +985,18 @@ impl RgbService {
             g.config.power = true;
             g.config.save();
         }
-        
+
         Self::apply_state(self.inner.clone()).await;
         "OK".to_string()
     }
 
     /// SetGlobal(p, b, d) — mirrors Python SetGlobal().
-    async fn set_global(&self, power_val: bool, brightness_val: i32, direction_str: String) -> String {
+    async fn set_global(
+        &self,
+        power_val: bool,
+        brightness_val: i32,
+        direction_str: String,
+    ) -> String {
         if !VALID_DIRECTIONS.contains(&direction_str.as_str()) {
             return "FAIL".to_string();
         }
@@ -861,7 +1007,7 @@ impl RgbService {
             g.config.direction = direction_str;
             g.config.save();
         }
-        
+
         Self::apply_state(self.inner.clone()).await;
         "OK".to_string()
     }
@@ -889,7 +1035,8 @@ impl RgbService {
         if !g.hw.available && !g.hid_per_key.is_available() {
             snap["unavailable_reason"] = serde_json::Value::String(
                 "RGB kernel module not loaded. Install 'hp_omen_extra' or 'omen-rgb-keyboard'. \
-                 No HID per-key device found either.".to_string()
+                 No HID per-key device found either."
+                    .to_string(),
             );
         }
         snap.to_string()
@@ -914,7 +1061,10 @@ impl RgbService {
             g.config.zone_count_override = normalized;
             g.config.save();
             g.hw = RgbHardware::detect_with_override(normalized);
-            info!("SetZoneCountOverride: override={:?}, effective zone_count={}", normalized, g.hw.zone_count);
+            info!(
+                "SetZoneCountOverride: override={:?}, effective zone_count={}",
+                normalized, g.hw.zone_count
+            );
         }
         Self::apply_state(self.inner.clone()).await;
         "OK".to_string()
@@ -956,8 +1106,16 @@ impl RgbService {
             }
         };
         if colors.len() != HidPerKeyBackend::TOTAL_KEY_COUNT {
-            warn!("SetPerKeyColors: expected {} colors, got {}", HidPerKeyBackend::TOTAL_KEY_COUNT, colors.len());
-            return format!("FAIL: expected {} colors, got {}", HidPerKeyBackend::TOTAL_KEY_COUNT, colors.len());
+            warn!(
+                "SetPerKeyColors: expected {} colors, got {}",
+                HidPerKeyBackend::TOTAL_KEY_COUNT,
+                colors.len()
+            );
+            return format!(
+                "FAIL: expected {} colors, got {}",
+                HidPerKeyBackend::TOTAL_KEY_COUNT,
+                colors.len()
+            );
         }
 
         let g = self.inner.lock().await;
@@ -965,17 +1123,23 @@ impl RgbService {
             return "FAIL: no HID per-key device".to_string();
         }
 
-        let key_colors: Vec<(u8, u8, u8)> = colors.iter().map(|hex| {
-            let h = hex.trim_start_matches('#');
-            let r = u8::from_str_radix(&h.get(0..2).unwrap_or("00"), 16).unwrap_or(0);
-            let g_c = u8::from_str_radix(&h.get(2..4).unwrap_or("00"), 16).unwrap_or(0);
-            let b = u8::from_str_radix(&h.get(4..6).unwrap_or("00"), 16).unwrap_or(0);
-            (r, g_c, b)
-        }).collect();
+        let key_colors: Vec<(u8, u8, u8)> = colors
+            .iter()
+            .map(|hex| {
+                let h = hex.trim_start_matches('#');
+                let r = u8::from_str_radix(&h.get(0..2).unwrap_or("00"), 16).unwrap_or(0);
+                let g_c = u8::from_str_radix(&h.get(2..4).unwrap_or("00"), 16).unwrap_or(0);
+                let b = u8::from_str_radix(&h.get(4..6).unwrap_or("00"), 16).unwrap_or(0);
+                (r, g_c, b)
+            })
+            .collect();
 
         g.hid_per_key.send_enter_per_key_mode(g.config.brightness);
         if g.hid_per_key.write_per_key_colors(&key_colors) {
-            info!("SetPerKeyColors: wrote {} key colors via HID", key_colors.len());
+            info!(
+                "SetPerKeyColors: wrote {} key colors via HID",
+                key_colors.len()
+            );
             "OK".to_string()
         } else {
             warn!("SetPerKeyColors: HID write failed");
@@ -1021,7 +1185,10 @@ impl RgbService {
                 info!("SavePerKeyMap: saved");
                 "OK".to_string()
             }
-            Err(e) => { warn!("SavePerKeyMap write error: {}", e); "FAIL".to_string() }
+            Err(e) => {
+                warn!("SavePerKeyMap write error: {}", e);
+                "FAIL".to_string()
+            }
         }
     }
 
@@ -1044,7 +1211,9 @@ pub async fn test_single_key_static(index: usize, r: u8, g: u8, b: u8) -> bool {
 
 fn parse_hex_color(hex: &str) -> (u8, u8, u8) {
     let h = hex.trim_start_matches('#');
-    if h.len() < 6 { return (255, 0, 0); }
+    if h.len() < 6 {
+        return (255, 0, 0);
+    }
     let r = u8::from_str_radix(&h[0..2], 16).unwrap_or(255);
     let g = u8::from_str_radix(&h[2..4], 16).unwrap_or(0);
     let b = u8::from_str_radix(&h[4..6], 16).unwrap_or(0);
@@ -1053,16 +1222,26 @@ fn parse_hex_color(hex: &str) -> (u8, u8, u8) {
 
 fn scale_hex_color(hex: &str, scaler: f64) -> String {
     let (r, g, b) = parse_hex_color(hex);
-    format!("{:02X}{:02X}{:02X}",
+    format!(
+        "{:02X}{:02X}{:02X}",
         ((r as f64) * scaler) as u8,
         ((g as f64) * scaler) as u8,
-        ((b as f64) * scaler) as u8)
+        ((b as f64) * scaler) as u8
+    )
 }
 
 /// Compute animation color per zone — mirrors Python _software_animation_loop logic.
 fn compute_anim_color(
-    mode: &str, step: f64, eff_idx: usize, zone_count: usize,
-    r1: u8, g1: u8, b1: u8, r2: u8, g2: u8, b2: u8,
+    mode: &str,
+    step: f64,
+    eff_idx: usize,
+    zone_count: usize,
+    r1: u8,
+    g1: u8,
+    b1: u8,
+    r2: u8,
+    g2: u8,
+    b2: u8,
 ) -> (u8, u8, u8) {
     use std::f64::consts::PI;
     match mode {
@@ -1083,12 +1262,20 @@ fn compute_anim_color(
         }
         "breathing" | "pulse" => {
             let factor = (step.sin() * 0.5) + 0.5;
-            ((r1 as f64 * factor) as u8, (g1 as f64 * factor) as u8, (b1 as f64 * factor) as u8)
+            (
+                (r1 as f64 * factor) as u8,
+                (g1 as f64 * factor) as u8,
+                (b1 as f64 * factor) as u8,
+            )
         }
         "chase" => {
             let pos = (step * 2.0) as usize % zone_count;
             let factor = if eff_idx == pos { 1.0 } else { 0.15 };
-            ((r1 as f64 * factor) as u8, (g1 as f64 * factor) as u8, (b1 as f64 * factor) as u8)
+            (
+                (r1 as f64 * factor) as u8,
+                (g1 as f64 * factor) as u8,
+                (b1 as f64 * factor) as u8,
+            )
         }
         "sparkle" => {
             use std::collections::hash_map::DefaultHasher;
@@ -1096,13 +1283,25 @@ fn compute_anim_color(
             let mut h = DefaultHasher::new();
             (eff_idx as u64 + step as u64).hash(&mut h);
             let val = h.finish();
-            let factor = if val % 4 == 0 { 0.1 + (val % 90) as f64 / 100.0 } else { 0.2 };
-            ((r1 as f64 * factor) as u8, (g1 as f64 * factor) as u8, (b1 as f64 * factor) as u8)
+            let factor = if val % 4 == 0 {
+                0.1 + (val % 90) as f64 / 100.0
+            } else {
+                0.2
+            };
+            (
+                (r1 as f64 * factor) as u8,
+                (g1 as f64 * factor) as u8,
+                (b1 as f64 * factor) as u8,
+            )
         }
         "candle" => {
             let noise = (step.sin() * 0.3) + ((step * 2.3).sin() * 0.15);
             let factor = (0.6 + noise).clamp(0.3, 1.0);
-            ((r1 as f64 * factor) as u8, (g1 as f64 * 0.6 * factor) as u8, (b1 as f64 * 0.2 * factor) as u8)
+            (
+                (r1 as f64 * factor) as u8,
+                (g1 as f64 * 0.6 * factor) as u8,
+                (b1 as f64 * 0.2 * factor) as u8,
+            )
         }
         "aurora" => {
             let hs = (step * 0.3) + (eff_idx as f64 * 0.5);
@@ -1115,7 +1314,9 @@ fn compute_anim_color(
             let beat = (step * 1.5) as u64;
             let seed = beat.wrapping_add(eff_idx as u64);
             // Simple LCG pseudo-random
-            let lcg = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let lcg = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let r = (lcg >> 56) as u8;
             let g = (lcg >> 48) as u8;
             let b = (lcg >> 40) as u8;
@@ -1129,5 +1330,128 @@ fn compute_anim_color(
             (r, g, b)
         }
         _ => (r1, g1, b1),
+    }
+}
+
+/// Maps a logical/software zone index to the physical hardware zone index.
+///
+/// For 4-zone keyboards on the hp-omen-extra WMI driver (such as Board 8BCD):
+///   Software Left   (0) -> Hardware zone2
+///   Software Middle (1) -> Hardware zone1
+///   Software Right  (2) -> Hardware zone0
+///   Software WASD   (3) -> Hardware zone3
+///
+/// Any zone index >= zone_count is rejected with an error to prevent touching
+/// inactive/unsupported zones (e.g. zone4..zone7).
+pub fn map_logical_to_hardware_zone(
+    zone: usize,
+    zone_count: u32,
+    is_new_driver: bool,
+) -> Result<usize, String> {
+    if zone >= zone_count as usize {
+        return Err(format!(
+            "Invalid zone index {}: keyboard only has {} zone(s) (valid: 0..{})",
+            zone,
+            zone_count,
+            zone_count.saturating_sub(1)
+        ));
+    }
+
+    if is_new_driver && zone_count == 4 {
+        // omen-rgb-keyboard, 4-zone layout
+        match zone {
+            0 => Ok(2), // Left
+            1 => Ok(1), // Middle
+            2 => Ok(0), // Right
+            3 => Ok(7), // WASD
+            _ => Err(format!("Zone {} unsupported for 4-zone new driver", zone)),
+        }
+    } else if !is_new_driver && zone_count == 4 {
+        // hp-omen-extra / hp_omen_extra WMI companion driver, 4-zone layout (Board 8BCD, etc.)
+        match zone {
+            0 => Ok(2), // Software Left   -> Hardware Left (zone2)
+            1 => Ok(1), // Software Middle -> Hardware Middle (zone1)
+            2 => Ok(0), // Software Right  -> Hardware Right (zone0)
+            3 => Ok(3), // Software WASD   -> Hardware WASD (zone3)
+            _ => Err(format!(
+                "Zone {} unsupported for 4-zone legacy driver",
+                zone
+            )),
+        }
+    } else if zone_count == 8 {
+        Ok(zone)
+    } else if zone_count == 1 && zone == 0 {
+        Ok(0)
+    } else {
+        Err(format!(
+            "Zone {} not supported on detected driver (zone_count={})",
+            zone, zone_count
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_four_zone_legacy_mapping() {
+        // Software Left (0) -> Hardware zone2
+        assert_eq!(map_logical_to_hardware_zone(0, 4, false).unwrap(), 2);
+        // Software Middle (1) -> Hardware zone1
+        assert_eq!(map_logical_to_hardware_zone(1, 4, false).unwrap(), 1);
+        // Software Right (2) -> Hardware zone0
+        assert_eq!(map_logical_to_hardware_zone(2, 4, false).unwrap(), 0);
+        // Software WASD (3) -> Hardware zone3
+        assert_eq!(map_logical_to_hardware_zone(3, 4, false).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_four_zone_legacy_blocks_inactive_zones() {
+        // Zones 4..7 must be strictly rejected on 4-zone hardware
+        assert!(map_logical_to_hardware_zone(4, 4, false).is_err());
+        assert!(map_logical_to_hardware_zone(5, 4, false).is_err());
+        assert!(map_logical_to_hardware_zone(6, 4, false).is_err());
+        assert!(map_logical_to_hardware_zone(7, 4, false).is_err());
+        assert!(map_logical_to_hardware_zone(8, 4, false).is_err());
+        assert!(map_logical_to_hardware_zone(99, 4, false).is_err());
+    }
+
+    #[test]
+    fn test_four_zone_new_driver_mapping() {
+        assert_eq!(map_logical_to_hardware_zone(0, 4, true).unwrap(), 2);
+        assert_eq!(map_logical_to_hardware_zone(1, 4, true).unwrap(), 1);
+        assert_eq!(map_logical_to_hardware_zone(2, 4, true).unwrap(), 0);
+        assert_eq!(map_logical_to_hardware_zone(3, 4, true).unwrap(), 7);
+        assert!(map_logical_to_hardware_zone(4, 4, true).is_err());
+    }
+
+    #[test]
+    fn test_eight_zone_mapping() {
+        for z in 0..8 {
+            assert_eq!(map_logical_to_hardware_zone(z, 8, false).unwrap(), z);
+        }
+        assert!(map_logical_to_hardware_zone(8, 8, false).is_err());
+    }
+
+    #[test]
+    fn test_one_zone_mapping() {
+        assert_eq!(map_logical_to_hardware_zone(0, 1, false).unwrap(), 0);
+        assert!(map_logical_to_hardware_zone(1, 1, false).is_err());
+    }
+
+    #[test]
+    fn test_hex_color_parsing_and_scaling() {
+        assert_eq!(parse_hex_color("FF0000"), (255, 0, 0));
+        assert_eq!(parse_hex_color("#00FF00"), (0, 255, 0));
+        assert_eq!(parse_hex_color("0000FF"), (0, 0, 255));
+        assert_eq!(parse_hex_color("FFFFFF"), (255, 255, 255));
+
+        // Scaling at 100%
+        assert_eq!(scale_hex_color("FFFFFF", 1.0), "FFFFFF");
+        // Scaling at 0%
+        assert_eq!(scale_hex_color("FFFFFF", 0.0), "000000");
+        // Scaling at 50%
+        assert_eq!(scale_hex_color("FFFFFF", 0.5), "7F7F7F");
     }
 }
