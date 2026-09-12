@@ -1,22 +1,31 @@
+use crate::i18n;
+use adw::prelude::*;
 use gtk::prelude::*;
 use libadwaita as adw;
-use adw::prelude::*;
-use std::rc::Rc;
 use std::cell::RefCell;
-use crate::i18n;
+use std::rc::Rc;
 
 /* ─────────────────────────────────────────────────────────────
-   undervolt.rs — Intel 13th Gen Undervolt & Power Limits
-   ───────────────────────────────────────────────────────────── */
+undervolt.rs — Intel 13th Gen Undervolt & Power Limits
+───────────────────────────────────────────────────────────── */
 
 fn is_cpu_locked(cpu: &str) -> bool {
     let name_part = cpu.split('·').next().unwrap_or(cpu).to_uppercase();
-    if name_part.contains("AMD") { return false; } // AMD handled by ryzenadj in daemon
-    if !name_part.contains("INTEL") { return false; }
-    
+    if name_part.contains("AMD") {
+        return false;
+    } // AMD handled by ryzenadj in daemon
+    if !name_part.contains("INTEL") {
+        return false;
+    }
+
     // Check for 12, 13, 14th gen
-    if name_part.contains("-12") || name_part.contains("-13") || name_part.contains("-14") 
-        || name_part.contains(" 12") || name_part.contains(" 13") || name_part.contains(" 14") {
+    if name_part.contains("-12")
+        || name_part.contains("-13")
+        || name_part.contains("-14")
+        || name_part.contains(" 12")
+        || name_part.contains(" 13")
+        || name_part.contains(" 14")
+    {
         if name_part.contains("HK") || name_part.contains("HX") {
             return false;
         }
@@ -43,16 +52,20 @@ pub fn build_page() -> gtk::Box {
         .spacing(4)
         .margin_bottom(2)
         .build();
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("title_undervolt"))
-        .css_classes(["page-title"])
-        .halign(gtk::Align::Start)
-        .build());
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("uv_desc"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .build());
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("title_undervolt"))
+            .css_classes(["page-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("uv_desc"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     page.append(&hdr);
 
     // ── Protection / Warning Banner ───────────────────────────
@@ -80,7 +93,7 @@ pub fn build_page() -> gtk::Box {
         .halign(gtk::Align::Start)
         .build();
     warn_text_box.append(&warn_title);
-    
+
     let warn_desc = gtk::Label::builder()
         .label(i18n::t("uv_lock_desc"))
         .css_classes(["os-section-desc"])
@@ -88,7 +101,7 @@ pub fn build_page() -> gtk::Box {
         .wrap(true)
         .build();
     warn_text_box.append(&warn_desc);
-    
+
     warn_card.append(&warn_text_box);
 
     let status_badge = gtk::Label::builder()
@@ -237,7 +250,12 @@ pub fn build_page() -> gtk::Box {
     tcc_scale.connect_value_changed(move |s| {
         let val = s.value() as i32;
         let max_temp = 100 - val;
-        tcc_lbl_clone.set_label(&format!("{}°C ({}: {}°C)", max_temp, i18n::t("tcc_offset_str"), val));
+        tcc_lbl_clone.set_label(&format!(
+            "{}°C ({}: {}°C)",
+            max_temp,
+            i18n::t("tcc_offset_str"),
+            val
+        ));
     });
     tcc_row.add_suffix(&tcc_scale);
     tcc_row.add_suffix(&tcc_lbl);
@@ -304,11 +322,11 @@ pub fn build_page() -> gtk::Box {
     let pl2_s_load = pl2_scale.clone();
     let tcc_s_load = tcc_scale.clone();
     let badge_load = status_badge.clone();
-    
+
     let cache_row_clone = cache_row.clone();
     let core_row_clone = core_row.clone();
     let core_scale_range = core_scale.clone();
-    
+
     let warn_title_clone = warn_title.clone();
     let warn_desc_clone = warn_desc.clone();
     let volt_group_clone = volt_group.clone();
@@ -323,10 +341,11 @@ pub fn build_page() -> gtk::Box {
                 if is_cpu_locked(&hw.cpu_spec) {
                     locked = true;
                     warn_title_clone.set_label(i18n::t("uv_unsupported_title"));
-                    warn_desc_clone.set_label(&i18n::t("uv_unsupported_desc").replace("{}", &hw.cpu_spec));
+                    warn_desc_clone
+                        .set_label(&i18n::t("uv_unsupported_desc").replace("{}", &hw.cpu_spec));
                     badge_load.set_label("Locked");
                     badge_load.set_css_classes(&["badge-err"]);
-                    
+
                     volt_group_clone.set_sensitive(false);
                     // allow power limits and TCC offset for locked CPUs
                 }
@@ -347,7 +366,8 @@ pub fn build_page() -> gtk::Box {
                         badge_load.set_label("RyzenAdj Missing");
                         badge_load.set_css_classes(&["badge-err"]);
                     } else {
-                        warn_desc_clone.set_label("RyzenAdj is managing Curve Optimizer and Power Limits.");
+                        warn_desc_clone
+                            .set_label("RyzenAdj is managing Curve Optimizer and Power Limits.");
                         badge_load.set_label("RyzenAdj OK");
                         badge_load.set_css_classes(&["badge-ok"]);
                     }
@@ -360,15 +380,23 @@ pub fn build_page() -> gtk::Box {
                     badge_load.set_css_classes(&["badge-ok"]);
                 }
 
-                if let Some(core) = state.get("offsets").and_then(|v| v.get("core")).and_then(|v| v.as_f64()) {
+                if let Some(core) = state
+                    .get("offsets")
+                    .and_then(|v| v.get("core"))
+                    .and_then(|v| v.as_f64())
+                {
                     core_s_load.set_value(core);
                 }
                 // Also parse old state format just in case
                 if let Some(core) = state.get("core").and_then(|v| v.as_f64()) {
                     core_s_load.set_value(core);
                 }
-                
-                if let Some(cache) = state.get("offsets").and_then(|v| v.get("cache")).and_then(|v| v.as_f64()) {
+
+                if let Some(cache) = state
+                    .get("offsets")
+                    .and_then(|v| v.get("cache"))
+                    .and_then(|v| v.as_f64())
+                {
                     cache_s_load.set_value(cache);
                 }
                 if let Some(cache) = state.get("cache").and_then(|v| v.as_f64()) {
@@ -380,7 +408,7 @@ pub fn build_page() -> gtk::Box {
                 }
             }
         }
-        
+
         // Load Power Limits separately
         if let Ok(json) = crate::daemon_client::get_power_profile_async().await {
             if let Ok(state) = serde_json::from_str::<serde_json::Value>(&json) {

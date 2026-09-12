@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use log::info;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConflictReport {
@@ -13,11 +13,23 @@ pub struct ConflictDetector;
 impl ConflictDetector {
     pub fn check_conflicts() -> ConflictReport {
         let known_conflicts = vec![
-            ("nbfc", "Notebook FanControl (nbfc) daemon running — may conflict with HP WMI fan writes"),
-            ("throttled", "Lenovo/Generic throttled service running — may race with CPU thermal limits"),
-            ("ryzenadj", "Background ryzenadj loop active — may collide with SMU power limit writes"),
+            (
+                "nbfc",
+                "Notebook FanControl (nbfc) daemon running — may conflict with HP WMI fan writes",
+            ),
+            (
+                "throttled",
+                "Lenovo/Generic throttled service running — may race with CPU thermal limits",
+            ),
+            (
+                "ryzenadj",
+                "Background ryzenadj loop active — may collide with SMU power limit writes",
+            ),
             ("hp-health", "Legacy HP Health service active"),
-            ("oghaagent", "HP OMEN Gaming Hub background service (Wine/Proton) active"),
+            (
+                "oghaagent",
+                "HP OMEN Gaming Hub background service (Wine/Proton) active",
+            ),
         ];
 
         let running_procs = crate::sysmon::get_running_process_names();
@@ -31,7 +43,10 @@ impl ConflictDetector {
 
         let has_conflicts = !conflicts_found.is_empty();
         let warning_message = if has_conflicts {
-            format!("Warning: {} potential conflicting thermal/power process(es) detected.", conflicts_found.len())
+            format!(
+                "Warning: {} potential conflicting thermal/power process(es) detected.",
+                conflicts_found.len()
+            )
         } else {
             "No thermal or EC control software conflicts detected. Coexistence clear.".to_string()
         };

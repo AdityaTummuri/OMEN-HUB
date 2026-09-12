@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
@@ -491,20 +492,13 @@ impl RyzenService {
 
     async fn apply_all_saved(&self) {
         let cfg = self.config.lock().await.clone();
-        if cfg.stapm_limit > 0 {
-            apply_stapm(&self.smu, self.family, cfg.stapm_limit);
-        }
-        if cfg.fast_limit > 0 {
-            apply_fast(&self.smu, self.family, cfg.fast_limit);
-        }
-        if cfg.slow_limit > 0 {
-            apply_slow(&self.smu, self.family, cfg.slow_limit);
-        }
-        if cfg.tctl_temp > 0 {
-            apply_tctl(&self.smu, self.family, cfg.tctl_temp);
-        }
-        if cfg.all_core_co != 0 {
-            apply_curve_optimizer(&self.smu, self.family, cfg.all_core_co);
+        if cfg.stapm_limit > 0
+            || cfg.fast_limit > 0
+            || cfg.slow_limit > 0
+            || cfg.tctl_temp > 0
+            || cfg.all_core_co != 0
+        {
+            warn!("apply_all_saved: Direct SMU hardware mutation is disabled in OMEN-HUB for system safety.");
         }
     }
 }

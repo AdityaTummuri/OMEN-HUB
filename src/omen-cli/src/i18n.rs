@@ -1,6 +1,6 @@
+use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
-use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
@@ -22,7 +22,7 @@ pub fn get_language() -> Language {
         p.push(".config");
         p.push("omenspace");
         p.push("gui_config.json");
-        
+
         if let Ok(content) = fs::read_to_string(&p) {
             if let Ok(cfg) = serde_json::from_str::<GuiConfig>(&content) {
                 selected = match cfg.language.as_str() {
@@ -77,7 +77,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "usage_rgb" => "Kullanım: rgb red | blue | off | <hex>",
         "usage_bat" => "Kullanım: bat <50-100>",
         "usage_uv" => "Kullanım: uv <-100 - 0>",
-        
+
         "fan_changed" => "Fan modu '{}' olarak değiştirildi",
         "fan_error" => "Fan hatası:",
         "fan_set" => "Fan hızı %{} olarak ayarlandı (Hedef: {} RPM)",
@@ -101,7 +101,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "mux_error" => "MUX hatası:",
         "mux_invalid" => "Geçersiz MUX modu:",
         "mux_no_service" => "MUX D-Bus servisi kullanılamıyor",
-        
+
         "uv_set" => "CPU Undervolt Ofseti {}mV olarak ayarlandı",
         "uv_error" => "Undervolt hatası:",
         "uv_invalid" => "Geçersiz voltaj ofseti:",
@@ -120,10 +120,10 @@ fn translate_tr(key: &'static str) -> &'static str {
         "diag_error" => "Teşhis hatası:",
         "diag_bundle" => "Teşhis paketi oluşturuldu: {}",
         "diag_no_service" => "SysMon D-Bus servisi kullanılamıyor",
-        
+
         "executed" => "'{}' çalıştırıldı",
         "unknown_cmd" => "Bilinmeyen komut:",
-        
+
         _ => key,
     }
 }
@@ -148,7 +148,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "usage_rgb" => "Usage: rgb red | blue | off | <hex>",
         "usage_bat" => "Usage: bat <50-100>",
         "usage_uv" => "Usage: uv <-100 - 0>",
-        
+
         "fan_changed" => "Fan mode changed to '{}'",
         "fan_error" => "Fan error:",
         "fan_set" => "Fan speed set to {}% (Target: {} RPM)",
@@ -172,7 +172,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "mux_error" => "MUX error:",
         "mux_invalid" => "Invalid MUX mode:",
         "mux_no_service" => "MUX D-Bus service unavailable",
-        
+
         "uv_set" => "CPU Undervolt Offset set to {}mV",
         "uv_error" => "Undervolt error:",
         "uv_invalid" => "Invalid voltage offset:",
@@ -191,10 +191,10 @@ fn translate_en(key: &'static str) -> &'static str {
         "diag_error" => "Diagnostic error:",
         "diag_bundle" => "Triage bundle created: {}",
         "diag_no_service" => "SysMon D-Bus service unavailable",
-        
+
         "executed" => "Executed '{}'",
         "unknown_cmd" => "Unknown command:",
-        
+
         _ => key,
     }
 }

@@ -5,7 +5,7 @@ pub fn get_asset_path(filename: &str) -> String {
     if Path::new(&system_path).exists() {
         return system_path;
     }
-    
+
     // Fallback for local development
     format!("assets/{}", filename)
 }

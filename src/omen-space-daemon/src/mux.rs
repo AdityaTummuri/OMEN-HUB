@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+use glob::glob;
+use log::{info, warn};
 /// MUX (GPU Switch) service - matches Python mux_service.py feature-for-feature.
 ///
 /// D-Bus interface: com.yyl.hpmanager.mux (backward compat) +
@@ -15,8 +17,6 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use zbus::interface;
-use log::{info, warn};
-use glob::glob;
 
 const HP_WMI_GRAPHICS_MODE_PATH: &str = "/sys/devices/platform/hp-wmi/gpu_mux_mode";
 const CONFIG_PATH: &str = "/etc/omen-space/mux.json";
@@ -28,7 +28,9 @@ struct MuxConfig {
 
 impl Default for MuxConfig {
     fn default() -> Self {
-        Self { mux_backend: "auto".to_string() }
+        Self {
+            mux_backend: "auto".to_string(),
+        }
     }
 }
 
@@ -86,12 +88,19 @@ impl MuxService {
         // 1. DRM eDP check
         if let Ok(entries) = glob("/sys/class/drm/card[0-9]*") {
             for entry in entries.filter_map(Result::ok) {
-                let name = entry.file_name()
-                    .and_then(|n| n.to_str()).unwrap_or("").to_uppercase();
-                if !name.contains("EDP") { continue; }
+                let name = entry
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_uppercase();
+                if !name.contains("EDP") {
+                    continue;
+                }
                 let status_path = entry.join("status");
                 if let Ok(status) = tokio::fs::read_to_string(&status_path).await {
-                    if status.trim() != "connected" { continue; }
+                    if status.trim() != "connected" {
+                        continue;
+                    }
                     let vendor_path = entry.join("device/device/vendor");
                     if let Ok(vendor) = tokio::fs::read_to_string(&vendor_path).await {
                         if vendor.trim().to_lowercase() == "0x10de" {
@@ -103,37 +112,37 @@ impl MuxService {
         }
 
         // 2. Passive sysfs check (replaces lspci -D to prevent waking dGPU from D3cold)
-    let mut has_nvidia = false;
-    let mut has_igpu = false;
+        let mut has_nvidia = false;
+        let mut has_igpu = false;
 
-    if let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let class = std::fs::read_to_string(path.join("class")).unwrap_or_default();
-            let class = class.trim();
+        if let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let class = std::fs::read_to_string(path.join("class")).unwrap_or_default();
+                let class = class.trim();
 
-            // Check for display controllers: 0x030000 (VGA) or 0x030200 (3D Controller)
-            if class.starts_with("0x03") {
-                let vendor = std::fs::read_to_string(path.join("vendor")).unwrap_or_default();
-                let vendor = vendor.trim().to_lowercase();
+                // Check for display controllers: 0x030000 (VGA) or 0x030200 (3D Controller)
+                if class.starts_with("0x03") {
+                    let vendor = std::fs::read_to_string(path.join("vendor")).unwrap_or_default();
+                    let vendor = vendor.trim().to_lowercase();
 
-                if vendor == "0x10de" {
-                    has_nvidia = true;
-                } else if vendor == "0x1002" || vendor == "0x8086" {
-                    // AMD (0x1002) or Intel (0x8086)
-                    has_igpu = true;
+                    if vendor == "0x10de" {
+                        has_nvidia = true;
+                    } else if vendor == "0x1002" || vendor == "0x8086" {
+                        // AMD (0x1002) or Intel (0x8086)
+                        has_igpu = true;
+                    }
                 }
             }
         }
-    }
 
-    if has_nvidia && has_igpu {
-        return "hybrid".to_string();
-    } else if has_nvidia {
-        return "discrete".to_string();
-    } else if has_igpu {
-        return "integrated".to_string();
-    }
+        if has_nvidia && has_igpu {
+            return "hybrid".to_string();
+        } else if has_nvidia {
+            return "discrete".to_string();
+        } else if has_igpu {
+            return "integrated".to_string();
+        }
 
         "unknown".to_string()
     }
@@ -147,16 +156,21 @@ impl MuxService {
             for entry in entries.filter_map(Result::ok) {
                 let status_path = entry.join("status");
                 if let Ok(status) = tokio::fs::read_to_string(&status_path).await {
-                    if status.trim() != "connected" { continue; }
+                    if status.trim() != "connected" {
+                        continue;
+                    }
                     let vendor_path = entry.join("device/device/vendor");
-                    let vendor_str = tokio::fs::read_to_string(&vendor_path).await
+                    let vendor_str = tokio::fs::read_to_string(&vendor_path)
+                        .await
                         .map(|s| s.trim().to_lowercase())
                         .unwrap_or_default();
-                    let gpu_name = vendors_map.iter()
+                    let gpu_name = vendors_map
+                        .iter()
                         .find(|(id, _)| vendor_str == *id)
                         .map(|(_, name)| *name)
                         .unwrap_or("Unknown GPU");
-                    let disp_name = entry.file_name()
+                    let disp_name = entry
+                        .file_name()
                         .and_then(|n| n.to_str())
                         .and_then(|s| s.splitn(2, '-').nth(1))
                         .unwrap_or("unknown")
@@ -179,12 +193,24 @@ impl MuxService {
         }
 
         if !Self::wmi_available() {
-            warn!("SetGpuMode: WMI MUX interface not found at {}", HP_WMI_GRAPHICS_MODE_PATH);
+            warn!(
+                "SetGpuMode: WMI MUX interface not found at {}",
+                HP_WMI_GRAPHICS_MODE_PATH
+            );
             return "Error: WMI MUX interface not found".to_string();
         }
 
-        let val = if mode == "discrete" { "1" } else if mode == "advanced" { "2" } else { "0" };
-        if tokio::fs::write(HP_WMI_GRAPHICS_MODE_PATH, val).await.is_ok() {
+        let val = if mode == "discrete" {
+            "1"
+        } else if mode == "advanced" {
+            "2"
+        } else {
+            "0"
+        };
+        if tokio::fs::write(HP_WMI_GRAPHICS_MODE_PATH, val)
+            .await
+            .is_ok()
+        {
             {
                 let mut g = self.inner.lock().await;
                 g.cached_mode = Some(mode.clone());
@@ -192,7 +218,10 @@ impl MuxService {
             info!("SetGpuMode: '{}' written to WMI sysfs", mode);
             "OK_REBOOT_REQUIRED".to_string()
         } else {
-            warn!("SetGpuMode: Failed to write to {}", HP_WMI_GRAPHICS_MODE_PATH);
+            warn!(
+                "SetGpuMode: Failed to write to {}",
+                HP_WMI_GRAPHICS_MODE_PATH
+            );
             "Error: Failed to write to WMI sysfs".to_string()
         }
     }
@@ -202,7 +231,11 @@ impl MuxService {
         let g = self.inner.lock().await;
         let available = Self::wmi_available();
         let backend = if available { "wmi-native" } else { "none" };
-        let available_backends: Vec<&str> = if available { vec!["wmi-native"] } else { vec![] };
+        let available_backends: Vec<&str> = if available {
+            vec!["wmi-native"]
+        } else {
+            vec![]
+        };
         let forced_backend = g.config.mux_backend.clone();
         drop(g);
 

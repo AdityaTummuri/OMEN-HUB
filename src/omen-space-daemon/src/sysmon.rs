@@ -423,10 +423,18 @@ struct GpuMetrics {
     power: Option<f64>,
 }
 
+static NVML_INSTANCE: Mutex<Option<nvml_wrapper::Nvml>> = Mutex::new(None);
+
 fn fetch_gpu_metrics_with_timeout() -> Option<GpuMetrics> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        if let Ok(nvml) = nvml_wrapper::Nvml::init() {
+        let Ok(mut guard) = NVML_INSTANCE.try_lock() else {
+            return;
+        };
+        if guard.is_none() {
+            *guard = nvml_wrapper::Nvml::init().ok();
+        }
+        if let Some(ref nvml) = *guard {
             if let Ok(device) = nvml.device_by_index(0) {
                 let gfx = device
                     .running_graphics_processes()
@@ -1037,4 +1045,36 @@ impl SysMonInterface {
         ctxt: &zbus::SignalContext<'_>,
         json_stats: &str,
     ) -> zbus::Result<()>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_gpu_metrics_no_fd_leak() {
+        // Prime the NVML instance and device handles
+        let _ = fetch_gpu_metrics_with_timeout();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        let initial_fds = std::fs::read_dir("/proc/self/fd")
+            .map(|e| e.count())
+            .unwrap_or(0);
+
+        // Run 30 consecutive metric fetches
+        for _ in 1..=30 {
+            let _ = fetch_gpu_metrics_with_timeout();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+
+        let final_fds = std::fs::read_dir("/proc/self/fd")
+            .map(|e| e.count())
+            .unwrap_or(0);
+
+        assert_eq!(
+            initial_fds, final_fds,
+            "File descriptor count must remain stable over repeated GPU metrics queries (initial: {}, final: {})",
+            initial_fds, final_fds
+        );
+    }
 }

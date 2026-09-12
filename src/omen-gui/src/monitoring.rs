@@ -1,12 +1,12 @@
 use gtk::prelude::*;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 /* ─────────────────────────────────────────────────────────
-   monitoring.rs
-   Shows live CPU / GPU / RAM / Disk stats for:
-   Victus by HP 16  |  i5-13500H  |  RTX 4050 Mobile  |  16 GB
-   ───────────────────────────────────────────────────────── */
+monitoring.rs
+Shows live CPU / GPU / RAM / Disk stats for:
+Victus by HP 16  |  i5-13500H  |  RTX 4050 Mobile  |  16 GB
+───────────────────────────────────────────────────────── */
 
 struct MonitorUI {
     container: gtk::Box,
@@ -42,7 +42,6 @@ struct ModesUI {
 
 // ── Helpers ────────────────────────────────────────────────
 
-
 fn val_label(text: &str) -> gtk::Label {
     gtk::Label::builder()
         .label(text)
@@ -73,12 +72,14 @@ fn build_monitor_card(icon_path: &str, title: &str, bar_class: &str, pwr_title: 
         .spacing(8)
         .build();
     r1.append(&gtk::Image::builder().file(icon_path).pixel_size(20).build());
-    r1.append(&gtk::Label::builder()
-        .label(title)
-        .css_classes(["monitor-icon-label"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build());
+    r1.append(
+        &gtk::Label::builder()
+            .label(title)
+            .css_classes(["monitor-icon-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     let l_temp = val_label("──°C");
     r1.append(&l_temp);
     card.append(&r1);
@@ -88,12 +89,14 @@ fn build_monitor_card(icon_path: &str, title: &str, bar_class: &str, pwr_title: 
         .orientation(gtk::Orientation::Horizontal)
         .margin_top(14)
         .build();
-    r2.append(&gtk::Label::builder()
-        .label(i18n::t("mon_temp"))
-        .css_classes(["os-monitor-label"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build());
+    r2.append(
+        &gtk::Label::builder()
+            .label(i18n::t("mon_temp"))
+            .css_classes(["os-monitor-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     r2.append(&sub_label(i18n::t("mon_load")));
     card.append(&r2);
 
@@ -125,14 +128,26 @@ fn build_monitor_card(icon_path: &str, title: &str, bar_class: &str, pwr_title: 
         .homogeneous(true)
         .build();
 
-    let b_pwr = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(3).build();
+    let b_pwr = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(3)
+        .build();
     b_pwr.append(&sub_label(pwr_title));
-    let l_p_val = gtk::Label::builder().label("──W").css_classes(["os-monitor-val-sm"]).build();
+    let l_p_val = gtk::Label::builder()
+        .label("──W")
+        .css_classes(["os-monitor-val-sm"])
+        .build();
     b_pwr.append(&l_p_val);
 
-    let b_fan = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(3).build();
+    let b_fan = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(3)
+        .build();
     b_fan.append(&sub_label(i18n::t("mon_fan")));
-    let l_f_val = gtk::Label::builder().label(&format!("── {}", i18n::t("mon_rpm"))).css_classes(["os-monitor-val-sm"]).build();
+    let l_f_val = gtk::Label::builder()
+        .label(&format!("── {}", i18n::t("mon_rpm")))
+        .css_classes(["os-monitor-val-sm"])
+        .build();
     b_fan.append(&l_f_val);
 
     r3.append(&b_pwr);
@@ -164,16 +179,20 @@ fn build_device_card() -> DeviceUI {
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .build();
-    r1.append(&gtk::Image::builder()
-        .icon_name("drive-harddisk-symbolic")
-        .pixel_size(18)
-        .build());
-    r1.append(&gtk::Label::builder()
-        .label(i18n::t("device_status"))
-        .css_classes(["monitor-icon-label"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build());
+    r1.append(
+        &gtk::Image::builder()
+            .icon_name("drive-harddisk-symbolic")
+            .pixel_size(18)
+            .build(),
+    );
+    r1.append(
+        &gtk::Label::builder()
+            .label(i18n::t("device_status"))
+            .css_classes(["monitor-icon-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     card.append(&r1);
 
     // RAM
@@ -182,8 +201,14 @@ fn build_device_card() -> DeviceUI {
         .margin_top(14)
         .build();
     ram_row.append(&sub_label(i18n::t("mon_ram")));
-    ram_row.append(&gtk::Label::builder().label(&specs.ram_spec).css_classes(["os-spec-text"])
-        .halign(gtk::Align::End).hexpand(true).build());
+    ram_row.append(
+        &gtk::Label::builder()
+            .label(&specs.ram_spec)
+            .css_classes(["os-spec-text"])
+            .halign(gtk::Align::End)
+            .hexpand(true)
+            .build(),
+    );
     card.append(&ram_row);
 
     let ram_bar = gtk::ProgressBar::builder()
@@ -210,8 +235,14 @@ fn build_device_card() -> DeviceUI {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     disk_row.append(&sub_label(i18n::t("mon_disk")));
-    disk_row.append(&gtk::Label::builder().label(&specs.ssd_spec).css_classes(["os-spec-text"])
-        .halign(gtk::Align::End).hexpand(true).build());
+    disk_row.append(
+        &gtk::Label::builder()
+            .label(&specs.ssd_spec)
+            .css_classes(["os-spec-text"])
+            .halign(gtk::Align::End)
+            .hexpand(true)
+            .build(),
+    );
     card.append(&disk_row);
 
     let disk_bar = gtk::ProgressBar::builder()
@@ -247,16 +278,20 @@ fn build_watt_card() -> TotalWattUI {
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .build();
-    r1.append(&gtk::Image::builder()
-        .icon_name("battery-symbolic")
-        .pixel_size(18)
-        .build());
-    r1.append(&gtk::Label::builder()
-        .label(i18n::t("total_system_power"))
-        .css_classes(["monitor-icon-label"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build());
+    r1.append(
+        &gtk::Image::builder()
+            .icon_name("battery-symbolic")
+            .pixel_size(18)
+            .build(),
+    );
+    r1.append(
+        &gtk::Label::builder()
+            .label(i18n::t("total_system_power"))
+            .css_classes(["monitor-icon-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     card.append(&r1);
     let val = gtk::Label::builder()
         .label("──.─ W")
@@ -268,7 +303,10 @@ fn build_watt_card() -> TotalWattUI {
         .margin_bottom(10)
         .build();
     card.append(&val);
-    TotalWattUI { container: card, val_label: val }
+    TotalWattUI {
+        container: card,
+        val_label: val,
+    }
 }
 
 // ── Watt history graph ──────────────────────────────────────
@@ -303,7 +341,11 @@ fn build_watt_graph_card(title: &str, _max_watt: f64) -> WattGraphUI {
         .margin_top(12)
         .build();
     card.append(&da);
-    WattGraphUI { container: card, drawing_area: da, warning_label: warn }
+    WattGraphUI {
+        container: card,
+        drawing_area: da,
+        warning_label: warn,
+    }
 }
 
 // ── Modes card (live from daemon) ───────────────────────────
@@ -316,24 +358,44 @@ fn build_modes_card() -> ModesUI {
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .build();
-    r1.append(&gtk::Image::builder()
-        .icon_name("preferences-system-symbolic")
-        .pixel_size(18)
-        .build());
-    r1.append(&gtk::Label::builder()
-        .label(i18n::t("system_modes"))
-        .css_classes(["monitor-icon-label"])
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .build());
+    r1.append(
+        &gtk::Image::builder()
+            .icon_name("preferences-system-symbolic")
+            .pixel_size(18)
+            .build(),
+    );
+    r1.append(
+        &gtk::Label::builder()
+            .label(i18n::t("system_modes"))
+            .css_classes(["monitor-icon-label"])
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     card.append(&r1);
 
-    let power_lbl = gtk::Label::builder().label("...").css_classes(["os-monitor-val-sub"]).build();
-    let fan_lbl = gtk::Label::builder().label("...").css_classes(["os-monitor-val-sub"]).build();
+    let power_lbl = gtk::Label::builder()
+        .label("...")
+        .css_classes(["os-monitor-val-sub"])
+        .build();
+    let fan_lbl = gtk::Label::builder()
+        .label("...")
+        .css_classes(["os-monitor-val-sub"])
+        .build();
 
     let make_row = |key: &str, val: &gtk::Label| {
-        let row = gtk::Box::builder().orientation(gtk::Orientation::Horizontal).margin_top(12).build();
-        row.append(&gtk::Label::builder().label(key).css_classes(["os-monitor-label"]).hexpand(true).halign(gtk::Align::Start).build());
+        let row = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .margin_top(12)
+            .build();
+        row.append(
+            &gtk::Label::builder()
+                .label(key)
+                .css_classes(["os-monitor-label"])
+                .hexpand(true)
+                .halign(gtk::Align::Start)
+                .build(),
+        );
         row.append(val);
         row
     };
@@ -353,7 +415,8 @@ fn build_modes_card() -> ModesUI {
         let mode = match crate::daemon_client::get_power_mode_async().await {
             Ok(m) if m != "unknown" => m,
             _ => {
-                let power = crate::daemon_client::get_power_profile_async().await
+                let power = crate::daemon_client::get_power_profile_async()
+                    .await
                     .unwrap_or_else(|_| "balanced".to_string());
                 match power.as_str() {
                     "power-saver" => "game-battery".to_string(),
@@ -368,12 +431,13 @@ fn build_modes_card() -> ModesUI {
             "game" => i18n::t("mode_game"),
             _ => i18n::t("mode_work"),
         });
-        let fan = crate::daemon_client::get_fan_mode_async().await
+        let fan = crate::daemon_client::get_fan_mode_async()
+            .await
             .unwrap_or_else(|_| "auto".to_string());
         fl.set_label(match fan.as_str() {
-            "max"    => i18n::t("fan_max"),
+            "max" => i18n::t("fan_max"),
             "manual" => i18n::t("fan_custom"),
-            _        => i18n::t("fan_auto"),
+            _ => i18n::t("fan_auto"),
         });
     });
 
@@ -397,11 +461,13 @@ pub fn build_spec_header() -> gtk::Box {
     };
 
     // Device image
-    card.append(&gtk::Image::builder()
-        .file(&crate::asset_resolver::get_asset_path(img_name))
-        .pixel_size(80)
-        .valign(gtk::Align::Center)
-        .build());
+    card.append(
+        &gtk::Image::builder()
+            .file(&crate::asset_resolver::get_asset_path(img_name))
+            .pixel_size(80)
+            .valign(gtk::Align::Center)
+            .build(),
+    );
 
     let info = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -409,11 +475,13 @@ pub fn build_spec_header() -> gtk::Box {
         .valign(gtk::Align::Center)
         .build();
 
-    info.append(&gtk::Label::builder()
-        .label(&specs.product_name)
-        .css_classes(["spec-device-name"])
-        .halign(gtk::Align::Start)
-        .build());
+    info.append(
+        &gtk::Label::builder()
+            .label(&specs.product_name)
+            .css_classes(["spec-device-name"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
 
     let grid = gtk::Grid::builder()
         .row_spacing(4)
@@ -421,23 +489,35 @@ pub fn build_spec_header() -> gtk::Box {
         .build();
 
     let spec_list = [
-        ("CPU",  specs.cpu_spec.as_str()),
-        ("GPU",  specs.gpu_spec.as_str()),
-        ("RAM",  specs.ram_spec.as_str()),
-        ("SSD",  specs.ssd_spec.as_str()),
-        ("OS",   specs.os_spec.as_str()),
+        ("CPU", specs.cpu_spec.as_str()),
+        ("GPU", specs.gpu_spec.as_str()),
+        ("RAM", specs.ram_spec.as_str()),
+        ("SSD", specs.ssd_spec.as_str()),
+        ("OS", specs.os_spec.as_str()),
     ];
 
     for (i, (k, v)) in spec_list.iter().enumerate() {
         grid.attach(
-            &gtk::Label::builder().label(*k).css_classes(["spec-label"])
-                .halign(gtk::Align::Start).build(),
-            0, i as i32, 1, 1
+            &gtk::Label::builder()
+                .label(*k)
+                .css_classes(["spec-label"])
+                .halign(gtk::Align::Start)
+                .build(),
+            0,
+            i as i32,
+            1,
+            1,
         );
         grid.attach(
-            &gtk::Label::builder().label(*v).css_classes(["spec-value"])
-                .halign(gtk::Align::Start).build(),
-            1, i as i32, 1, 1
+            &gtk::Label::builder()
+                .label(*v)
+                .css_classes(["spec-value"])
+                .halign(gtk::Align::Start)
+                .build(),
+            1,
+            i as i32,
+            1,
+            1,
         );
     }
     info.append(&grid);
@@ -485,8 +565,8 @@ pub fn build_page(is_general: bool) -> gtk::Box {
 
     let cpu_watt_ui = build_watt_graph_card(i18n::t("cpu_wattage"), cpu_max_watt);
     let gpu_watt_ui = build_watt_graph_card(i18n::t("gpu_wattage"), gpu_max_watt);
-    let watt_ui     = build_watt_card();
-    let modes_ui    = build_modes_card();
+    let watt_ui = build_watt_card();
+    let modes_ui = build_modes_card();
 
     let cpu_history = Rc::new(RefCell::new(vec![(0.0f64, false); 60]));
     let gpu_history = Rc::new(RefCell::new(vec![(0.0f64, false); 60]));
@@ -511,8 +591,18 @@ pub fn build_page(is_general: bool) -> gtk::Box {
         .spacing(10)
         .homogeneous(true)
         .build();
-    let cpu_ui = build_monitor_card(&crate::asset_resolver::get_asset_path("cpu.svg"), "CPU",  "os-prog-cpu", i18n::t("mon_sys_pwr"));
-    let gpu_ui = build_monitor_card(&crate::asset_resolver::get_asset_path("gpu.svg"), "GPU",  "os-prog-gpu", i18n::t("mon_sys_pwr"));
+    let cpu_ui = build_monitor_card(
+        &crate::asset_resolver::get_asset_path("cpu.svg"),
+        "CPU",
+        "os-prog-cpu",
+        i18n::t("mon_sys_pwr"),
+    );
+    let gpu_ui = build_monitor_card(
+        &crate::asset_resolver::get_asset_path("gpu.svg"),
+        "GPU",
+        "os-prog-gpu",
+        i18n::t("mon_sys_pwr"),
+    );
     let dev_ui = build_device_card();
 
     mon_row.append(&cpu_ui.container);
@@ -534,12 +624,26 @@ pub fn build_page(is_general: bool) -> gtk::Box {
     // ── Cairo draw functions ─────────────────────────────────
     let cpu_hist_c = cpu_history.clone();
     cpu_watt_ui.drawing_area.set_draw_func(move |_, cr, w, h| {
-        draw_sparkline(cr, w, h, &cpu_hist_c.borrow(), cpu_max_watt, (0.88, 0.20, 0.33));
+        draw_sparkline(
+            cr,
+            w,
+            h,
+            &cpu_hist_c.borrow(),
+            cpu_max_watt,
+            (0.88, 0.20, 0.33),
+        );
     });
 
     let gpu_hist_c = gpu_history.clone();
     gpu_watt_ui.drawing_area.set_draw_func(move |_, cr, w, h| {
-        draw_sparkline(cr, w, h, &gpu_hist_c.borrow(), gpu_max_watt, (0.0, 0.60, 0.93));
+        draw_sparkline(
+            cr,
+            w,
+            h,
+            &gpu_hist_c.borrow(),
+            gpu_max_watt,
+            (0.0, 0.60, 0.93),
+        );
     });
 
     // ── 1-second real-time refresh timer ─────────────────────
@@ -549,49 +653,87 @@ pub fn build_page(is_general: bool) -> gtk::Box {
         // 5-second SMA for temperatures
         let mut c_th = cpu_temp_hist.borrow_mut();
         c_th.push_back(stats.cpu_temp);
-        if c_th.len() > 5 { c_th.pop_front(); }
+        if c_th.len() > 5 {
+            c_th.pop_front();
+        }
         let c_avg = c_th.iter().sum::<i32>() / c_th.len() as i32;
 
         let mut g_th = gpu_temp_hist.borrow_mut();
         g_th.push_back(stats.gpu_temp);
-        if g_th.len() > 5 { g_th.pop_front(); }
+        if g_th.len() > 5 {
+            g_th.pop_front();
+        }
         let g_avg = g_th.iter().sum::<i32>() / g_th.len() as i32;
 
         cpu_ui.temp_label.set_label(&format!("{}°C", c_avg));
         cpu_ui.load_bar.set_fraction(stats.cpu_load);
-        cpu_ui.load_pct_label.set_label(&format!("{}%", (stats.cpu_load * 100.0) as i32));
-        cpu_ui.pwr_label.set_label(&format!("{:.1}W", stats.cpu_pwr));
-        cpu_ui.fan_label.set_label(&format!("{} RPM", if stats.fan1_rpm > 0 { stats.fan1_rpm } else { stats.fan_rpm }));
+        cpu_ui
+            .load_pct_label
+            .set_label(&format!("{}%", (stats.cpu_load * 100.0) as i32));
+        cpu_ui
+            .pwr_label
+            .set_label(&format!("{:.1}W", stats.cpu_pwr));
+        cpu_ui.fan_label.set_label(&format!(
+            "{} RPM",
+            if stats.fan1_rpm > 0 {
+                stats.fan1_rpm
+            } else {
+                stats.fan_rpm
+            }
+        ));
 
         gpu_ui.temp_label.set_label(&format!("{}°C", g_avg));
         gpu_ui.load_bar.set_fraction(stats.gpu_load);
-        gpu_ui.load_pct_label.set_label(&format!("{}%", (stats.gpu_load * 100.0) as i32));
+        gpu_ui
+            .load_pct_label
+            .set_label(&format!("{}%", (stats.gpu_load * 100.0) as i32));
         if stats.gpu_pwr < 0.0 {
             gpu_ui.pwr_label.set_label("D3Cold");
         } else {
-            gpu_ui.pwr_label.set_label(&format!("{:.1}W", stats.gpu_pwr));
+            gpu_ui
+                .pwr_label
+                .set_label(&format!("{:.1}W", stats.gpu_pwr));
         }
-        gpu_ui.fan_label.set_label(&format!("{} RPM", if stats.fan2_rpm > 0 { stats.fan2_rpm } else { stats.fan_rpm }));
+        gpu_ui.fan_label.set_label(&format!(
+            "{} RPM",
+            if stats.fan2_rpm > 0 {
+                stats.fan2_rpm
+            } else {
+                stats.fan_rpm
+            }
+        ));
 
         dev_ui.ram_bar.set_fraction(stats.ram_frac);
-        dev_ui.ram_val_label.set_label(
-            &format!("{:.1} / {:.1} GB", stats.ram_used_gb, stats.ram_total_gb));
+        dev_ui.ram_val_label.set_label(&format!(
+            "{:.1} / {:.1} GB",
+            stats.ram_used_gb, stats.ram_total_gb
+        ));
         dev_ui.disk_bar.set_fraction(stats.disk_frac);
-        dev_ui.disk_val_label.set_label(
-            &format!("{:.0} / {:.0} GB", stats.disk_used_gb, stats.disk_total_gb));
+        dev_ui.disk_val_label.set_label(&format!(
+            "{:.0} / {:.0} GB",
+            stats.disk_used_gb, stats.disk_total_gb
+        ));
 
         if !is_general {
             let mut last = last_throttle.borrow_mut();
-            let cpu_throttled = stats.cpu_throttle_count > *last && *last > 0 || stats.cpu_temp >= 95;
-            let gpu_throttled = stats.gpu_temp >= 87 || (stats.gpu_load > 0.9 && stats.gpu_pwr >= 0.0 && stats.gpu_pwr < 20.0);
-            
+            let cpu_throttled =
+                stats.cpu_throttle_count > *last && *last > 0 || stats.cpu_temp >= 95;
+            let gpu_throttled = stats.gpu_temp >= 87
+                || (stats.gpu_load > 0.9 && stats.gpu_pwr >= 0.0 && stats.gpu_pwr < 20.0);
+
             let mut ch = cpu_history.borrow_mut();
-            ch.remove(0); ch.push((stats.cpu_pwr, cpu_throttled));
+            ch.remove(0);
+            ch.push((stats.cpu_pwr, cpu_throttled));
             cpu_watt_ui.drawing_area.queue_draw();
 
-            let pwr = if stats.gpu_pwr < 0.0 { 0.0 } else { stats.gpu_pwr };
+            let pwr = if stats.gpu_pwr < 0.0 {
+                0.0
+            } else {
+                stats.gpu_pwr
+            };
             let mut gh = gpu_history.borrow_mut();
-            gh.remove(0); gh.push((pwr, gpu_throttled));
+            gh.remove(0);
+            gh.push((pwr, gpu_throttled));
             gpu_watt_ui.drawing_area.queue_draw();
 
             cpu_watt_ui.warning_label.set_visible(cpu_throttled);
@@ -599,7 +741,9 @@ pub fn build_page(is_general: bool) -> gtk::Box {
 
             gpu_watt_ui.warning_label.set_visible(gpu_throttled);
 
-            watt_ui.val_label.set_label(&format!("{:.1} W", stats.total_pwr));
+            watt_ui
+                .val_label
+                .set_label(&format!("{:.1} W", stats.total_pwr));
         }
     });
 
@@ -609,12 +753,13 @@ pub fn build_page(is_general: bool) -> gtk::Box {
 // ── Sparkline helper ─────────────────────────────────────────
 fn draw_sparkline(
     cr: &gtk::cairo::Context,
-    w: i32, h: i32,
+    w: i32,
+    h: i32,
     hist: &[(f64, bool)],
     max_val: f64,
     (r, g, b): (f64, f64, f64),
 ) {
-    let n    = hist.len();
+    let n = hist.len();
     let step = w as f64 / (n - 1).max(1) as f64;
 
     // Background transparent
@@ -627,7 +772,9 @@ fn draw_sparkline(
     cr.set_source_rgba(0.14, 0.14, 0.14, 1.0);
     for p in [0.25, 0.5, 0.75] {
         let y = h as f64 * (1.0 - p);
-        cr.move_to(0.0, y); cr.line_to(w as f64, y); let _ = cr.stroke();
+        cr.move_to(0.0, y);
+        cr.line_to(w as f64, y);
+        let _ = cr.stroke();
     }
 
     // Fill
@@ -644,7 +791,7 @@ fn draw_sparkline(
     // Line (conditional color)
     cr.set_line_width(2.0);
     for i in 1..n {
-        let prev_y = (hist[i-1].0 / max_val).clamp(0.0, 1.0);
+        let prev_y = (hist[i - 1].0 / max_val).clamp(0.0, 1.0);
         let curr_y = (hist[i].0 / max_val).clamp(0.0, 1.0);
         let is_throttled = hist[i].1;
 
@@ -660,7 +807,11 @@ fn draw_sparkline(
     }
 
     // Scale label (Max value)
-    cr.select_font_face("Sans", gtk::cairo::FontSlant::Normal, gtk::cairo::FontWeight::Normal);
+    cr.select_font_face(
+        "Sans",
+        gtk::cairo::FontSlant::Normal,
+        gtk::cairo::FontWeight::Normal,
+    );
     cr.set_font_size(9.0);
     cr.set_source_rgba(0.32, 0.32, 0.32, 1.0);
     cr.move_to(4.0, 10.0);
@@ -671,7 +822,7 @@ fn draw_sparkline(
     let end_y = h as f64 - (last_val / max_val).clamp(0.0, 1.0) * h as f64;
     cr.set_font_size(11.0);
     cr.set_source_rgba(1.0, 1.0, 1.0, 0.9);
-    
+
     // Draw text a bit to the left of the very right edge so it doesn't clip
     cr.move_to(w as f64 - 38.0, end_y - 6.0);
     let _ = cr.show_text(&format!("{:.1}W", last_val));

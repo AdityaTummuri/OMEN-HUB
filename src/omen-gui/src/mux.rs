@@ -1,12 +1,12 @@
+use crate::i18n;
+use adw::prelude::*;
 use gtk::prelude::*;
 use libadwaita as adw;
-use adw::prelude::*;
 use std::fs;
-use crate::i18n;
 
 /* ─────────────────────────────────────────────────────────────
-   mux.rs — GPU MUX Switch Page
-   ───────────────────────────────────────────────────────────── */
+mux.rs — GPU MUX Switch Page
+───────────────────────────────────────────────────────────── */
 
 fn get_nvidia_driver_version() -> String {
     if let Ok(content) = fs::read_to_string("/proc/driver/nvidia/version") {
@@ -14,7 +14,9 @@ fn get_nvidia_driver_version() -> String {
             if line.contains("NVRM version:") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for part in parts {
-                    if part.contains('.') && part.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                    if part.contains('.')
+                        && part.chars().next().map_or(false, |c| c.is_ascii_digit())
+                    {
                         return format!("{} (NVIDIA Open Kernel)", part);
                     }
                 }
@@ -26,15 +28,30 @@ fn get_nvidia_driver_version() -> String {
 
 fn detect_active_display_gpu() -> (String, bool, String, String) {
     let specs = crate::daemon_client::get_hardware_specs_sync();
-    let gpu_name = specs.gpu_spec.split("  ·  ").next().unwrap_or("NVIDIA GPU").to_string();
-    let is_amd = specs.cpu_spec.to_lowercase().contains("ryzen") || specs.cpu_spec.to_lowercase().contains("amd");
-    let igpu_name = if is_amd { "AMD Radeon Graphics".to_string() } else { "Intel Integrated Graphics".to_string() };
+    let gpu_name = specs
+        .gpu_spec
+        .split("  ·  ")
+        .next()
+        .unwrap_or("NVIDIA GPU")
+        .to_string();
+    let is_amd = specs.cpu_spec.to_lowercase().contains("ryzen")
+        || specs.cpu_spec.to_lowercase().contains("amd");
+    let igpu_name = if is_amd {
+        "AMD Radeon Graphics".to_string()
+    } else {
+        "Intel Integrated Graphics".to_string()
+    };
 
     if let Ok(entries) = glob::glob("/sys/class/drm/card[0-9]*-*eDP-1*/device/vendor") {
         for entry in entries.filter_map(Result::ok) {
             if let Ok(vendor) = fs::read_to_string(entry) {
                 if vendor.trim().to_lowercase() == "0x10de" {
-                    return (format!("eDP-1 → {} (Discrete)", gpu_name), true, gpu_name, igpu_name);
+                    return (
+                        format!("eDP-1 → {} (Discrete)", gpu_name),
+                        true,
+                        gpu_name,
+                        igpu_name,
+                    );
                 }
             }
         }
@@ -43,12 +60,22 @@ fn detect_active_display_gpu() -> (String, bool, String, String) {
         for entry in entries.filter_map(Result::ok) {
             if let Ok(vendor) = fs::read_to_string(entry) {
                 if vendor.trim().to_lowercase() == "0x10de" {
-                    return (format!("eDP-1 → {} (Discrete)", gpu_name), true, gpu_name, igpu_name);
+                    return (
+                        format!("eDP-1 → {} (Discrete)", gpu_name),
+                        true,
+                        gpu_name,
+                        igpu_name,
+                    );
                 }
             }
         }
     }
-    (format!("eDP-1 → {} (Hybrid)", igpu_name), false, gpu_name, igpu_name)
+    (
+        format!("eDP-1 → {} (Hybrid)", igpu_name),
+        false,
+        gpu_name,
+        igpu_name,
+    )
 }
 
 pub fn build_page() -> gtk::Box {
@@ -66,16 +93,20 @@ pub fn build_page() -> gtk::Box {
         .spacing(4)
         .margin_bottom(4)
         .build();
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("title_mux"))
-        .css_classes(["page-title"])
-        .halign(gtk::Align::Start)
-        .build());
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("mux_desc"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .build());
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("title_mux"))
+            .css_classes(["page-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("mux_desc"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     page.append(&hdr);
 
     // ── 2 Main Selection Cards ────────────────────────────────
@@ -143,16 +174,20 @@ pub fn build_page() -> gtk::Box {
         .spacing(2)
         .hexpand(true)
         .build();
-    warn_txt.append(&gtk::Label::builder()
-        .label(i18n::t("restart_required"))
-        .css_classes(["chip-title"])
-        .halign(gtk::Align::Start)
-        .build());
-    warn_txt.append(&gtk::Label::builder()
-        .label(i18n::t("restart_desc"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .build());
+    warn_txt.append(
+        &gtk::Label::builder()
+            .label(i18n::t("restart_required"))
+            .css_classes(["chip-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    warn_txt.append(
+        &gtk::Label::builder()
+            .label(i18n::t("restart_desc"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     warn_card.append(&warn_txt);
 
     let reboot_btn = gtk::Button::builder()
@@ -160,9 +195,11 @@ pub fn build_page() -> gtk::Box {
         .css_classes(["suggested-action"])
         .valign(gtk::Align::Center)
         .build();
-    
+
     reboot_btn.connect_clicked(|_| {
-        let _ = std::process::Command::new("systemctl").arg("reboot").spawn();
+        let _ = std::process::Command::new("systemctl")
+            .arg("reboot")
+            .spawn();
     });
 
     warn_card.append(&reboot_btn);
@@ -179,7 +216,11 @@ pub fn build_page() -> gtk::Box {
         .build();
     let disp_val = gtk::Label::builder()
         .label(&disp_info)
-        .css_classes(if is_discrete_active { ["badge-warn"] } else { ["badge-ok"] })
+        .css_classes(if is_discrete_active {
+            ["badge-warn"]
+        } else {
+            ["badge-ok"]
+        })
         .valign(gtk::Align::Center)
         .build();
     disp_row.add_suffix(&disp_val);
@@ -306,29 +347,37 @@ fn build_simple_mux_card(
         .hexpand(true)
         .valign(gtk::Align::Center)
         .build();
-    text_col.append(&gtk::Label::builder()
-        .label(title)
-        .css_classes(["chip-title"])
-        .halign(gtk::Align::Start)
-        .build());
-    text_col.append(&gtk::Label::builder()
-        .label(subtitle)
-        .css_classes(["chip-sub"])
-        .halign(gtk::Align::Start)
-        .build());
+    text_col.append(
+        &gtk::Label::builder()
+            .label(title)
+            .css_classes(["chip-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    text_col.append(
+        &gtk::Label::builder()
+            .label(subtitle)
+            .css_classes(["chip-sub"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     top_row.append(&text_col);
     inner.append(&top_row);
 
-    inner.append(&gtk::Label::builder()
-        .label(desc)
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .wrap(true)
-        .build());
+    inner.append(
+        &gtk::Label::builder()
+            .label(desc)
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .wrap(true)
+            .build(),
+    );
 
     btn.set_child(Some(&inner));
 
-    let wrap = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+    let wrap = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .build();
     wrap.append(&btn);
     (btn, wrap)
 }

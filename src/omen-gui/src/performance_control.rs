@@ -1,8 +1,8 @@
-use gtk::prelude::*;
-use std::rc::Rc;
-use std::cell::{Cell, RefCell};
-use crate::i18n;
 use crate::daemon_client;
+use crate::i18n;
+use gtk::prelude::*;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 pub fn build_page() -> gtk::Box {
     let page = gtk::Box::builder()
@@ -16,12 +16,14 @@ pub fn build_page() -> gtk::Box {
         .spacing(8)
         .margin_bottom(2)
         .build();
-    header_row.append(&gtk::Label::builder()
-        .label(i18n::t("title_performance"))
-        .css_classes(["page-title"])
-        .halign(gtk::Align::Start)
-        .hexpand(true)
-        .build());
+    header_row.append(
+        &gtk::Label::builder()
+            .label(i18n::t("title_performance"))
+            .css_classes(["page-title"])
+            .halign(gtk::Align::Start)
+            .hexpand(true)
+            .build(),
+    );
 
     let daemon_pill = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -29,26 +31,40 @@ pub fn build_page() -> gtk::Box {
         .css_classes(["daemon-pill"])
         .valign(gtk::Align::Center)
         .build();
-    daemon_pill.append(&gtk::Label::builder().label("●").css_classes(["daemon-dot-on"]).build());
-    daemon_pill.append(&gtk::Label::builder().label(i18n::t("daemon_label")).css_classes(["daemon-pill-text"]).build());
+    daemon_pill.append(
+        &gtk::Label::builder()
+            .label("●")
+            .css_classes(["daemon-dot-on"])
+            .build(),
+    );
+    daemon_pill.append(
+        &gtk::Label::builder()
+            .label(i18n::t("daemon_label"))
+            .css_classes(["daemon-pill-text"])
+            .build(),
+    );
     header_row.append(&daemon_pill);
     page.append(&header_row);
 
-    page.append(&gtk::Label::builder()
-        .label(i18n::t("system_profiles_desc"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .margin_bottom(8)
-        .wrap(true)
-        .build());
+    page.append(
+        &gtk::Label::builder()
+            .label(i18n::t("system_profiles_desc"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .margin_bottom(8)
+            .wrap(true)
+            .build(),
+    );
 
     // ── PERFORMANCE MODES ─────────────────────────────────────────────────────
-    page.append(&gtk::Label::builder()
-        .label(i18n::t("perf_modes_cat"))
-        .css_classes(["os-cat-label"])
-        .halign(gtk::Align::Start)
-        .margin_bottom(6)
-        .build());
+    page.append(
+        &gtk::Label::builder()
+            .label(i18n::t("perf_modes_cat"))
+            .css_classes(["os-cat-label"])
+            .halign(gtk::Align::Start)
+            .margin_bottom(6)
+            .build(),
+    );
 
     let perf_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -93,12 +109,14 @@ pub fn build_page() -> gtk::Box {
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .build();
-    status_header.append(&gtk::Label::builder()
-        .label(i18n::t("power_hardware_status"))
-        .css_classes(["os-card-header"])
-        .halign(gtk::Align::Start)
-        .hexpand(true)
-        .build());
+    status_header.append(
+        &gtk::Label::builder()
+            .label(i18n::t("power_hardware_status"))
+            .css_classes(["os-card-header"])
+            .halign(gtk::Align::Start)
+            .hexpand(true)
+            .build(),
+    );
 
     let active_mode_badge = gtk::Label::builder()
         .label("...")
@@ -120,11 +138,13 @@ pub fn build_page() -> gtk::Box {
             .spacing(4)
             .halign(gtk::Align::Start)
             .build();
-        col.append(&gtk::Label::builder()
-            .label(i18n::t(cat_title))
-            .css_classes(["os-monitor-label"])
-            .halign(gtk::Align::Start)
-            .build());
+        col.append(
+            &gtk::Label::builder()
+                .label(i18n::t(cat_title))
+                .css_classes(["os-monitor-label"])
+                .halign(gtk::Align::Start)
+                .build(),
+        );
         let val_lbl = gtk::Label::builder()
             .label("...")
             .css_classes(["os-monitor-val-sm"])
@@ -320,12 +340,14 @@ pub fn build_page() -> gtk::Box {
         .spacing(8)
         .margin_bottom(6)
         .build();
-    fan_header.append(&gtk::Label::builder()
-        .label(i18n::t("fan_modes_cat"))
-        .css_classes(["os-cat-label"])
-        .halign(gtk::Align::Start)
-        .hexpand(true)
-        .build());
+    fan_header.append(
+        &gtk::Label::builder()
+            .label(i18n::t("fan_modes_cat"))
+            .css_classes(["os-cat-label"])
+            .halign(gtk::Align::Start)
+            .hexpand(true)
+            .build(),
+    );
     page.append(&fan_header);
 
     let fan_box = gtk::FlowBox::builder()
@@ -335,9 +357,21 @@ pub fn build_page() -> gtk::Box {
         .column_spacing(12)
         .build();
 
-    let (auto_btn, auto_wrap)     = build_fan_chip_card(&crate::asset_resolver::get_asset_path("balanced.svg"),    i18n::t("fan_auto"),   i18n::t("fan_auto_sub"));
-    let (max_btn, max_wrap)       = build_fan_chip_card(&crate::asset_resolver::get_asset_path("performance.svg"), i18n::t("fan_max"),    i18n::t("fan_max_sub"));
-    let (custom_btn, custom_wrap) = build_fan_chip_card(&crate::asset_resolver::get_asset_path("custom.svg"),      i18n::t("fan_custom"), i18n::t("fan_custom_sub"));
+    let (auto_btn, auto_wrap) = build_fan_chip_card(
+        &crate::asset_resolver::get_asset_path("balanced.svg"),
+        i18n::t("fan_auto"),
+        i18n::t("fan_auto_sub"),
+    );
+    let (max_btn, max_wrap) = build_fan_chip_card(
+        &crate::asset_resolver::get_asset_path("performance.svg"),
+        i18n::t("fan_max"),
+        i18n::t("fan_max_sub"),
+    );
+    let (custom_btn, custom_wrap) = build_fan_chip_card(
+        &crate::asset_resolver::get_asset_path("custom.svg"),
+        i18n::t("fan_custom"),
+        i18n::t("fan_custom_sub"),
+    );
 
     let current_fan = crate::daemon_client::get_fan_mode_sync();
     if current_fan == "max" {
@@ -350,10 +384,22 @@ pub fn build_page() -> gtk::Box {
     max_btn.set_group(Some(&auto_btn));
     custom_btn.set_group(Some(&auto_btn));
 
-    auto_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_fan_mode_sync("auto".to_string()); } });
-    max_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_fan_mode_sync("max".to_string()); } });
+    auto_btn.connect_toggled(|btn| {
+        if btn.is_active() {
+            daemon_client::set_fan_mode_sync("auto".to_string());
+        }
+    });
+    max_btn.connect_toggled(|btn| {
+        if btn.is_active() {
+            daemon_client::set_fan_mode_sync("max".to_string());
+        }
+    });
     // custom_btn toggle will reveal the custom curve builder below, but let's also set the mode.
-    custom_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_fan_mode_sync("custom".to_string()); } });
+    custom_btn.connect_toggled(|btn| {
+        if btn.is_active() {
+            daemon_client::set_fan_mode_sync("custom".to_string());
+        }
+    });
 
     fan_box.insert(&auto_wrap, -1);
     fan_box.insert(&max_wrap, -1);
@@ -384,12 +430,14 @@ pub fn build_page() -> gtk::Box {
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .build();
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("custom_curve_title"))
-        .css_classes(["os-section-header"])
-        .halign(gtk::Align::Start)
-        .hexpand(true)
-        .build());
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("custom_curve_title"))
+            .css_classes(["os-section-header"])
+            .halign(gtk::Align::Start)
+            .hexpand(true)
+            .build(),
+    );
 
     // CPU / GPU pill selector
     let pill = gtk::Box::builder()
@@ -413,18 +461,28 @@ pub fn build_page() -> gtk::Box {
     curve_card.append(&hdr);
 
     // Hint text
-    curve_card.append(&gtk::Label::builder()
-        .label(i18n::t("custom_curve_hint"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .build());
+    curve_card.append(
+        &gtk::Label::builder()
+            .label(i18n::t("custom_curve_hint"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
 
     // Control points for CPU and GPU (temp 40..100, speed 0..100)
     let cpu_pts: Rc<RefCell<Vec<(f64, f64)>>> = Rc::new(RefCell::new(vec![
-        (40.0, 20.0), (55.0, 35.0), (70.0, 60.0), (85.0, 82.0), (100.0, 100.0),
+        (40.0, 20.0),
+        (55.0, 35.0),
+        (70.0, 60.0),
+        (85.0, 82.0),
+        (100.0, 100.0),
     ]));
     let gpu_pts: Rc<RefCell<Vec<(f64, f64)>>> = Rc::new(RefCell::new(vec![
-        (40.0, 15.0), (55.0, 30.0), (70.0, 55.0), (85.0, 78.0), (100.0, 100.0),
+        (40.0, 15.0),
+        (55.0, 30.0),
+        (70.0, 55.0),
+        (85.0, 78.0),
+        (100.0, 100.0),
     ]));
 
     // Which curve is active: false = CPU, true = GPU
@@ -445,16 +503,26 @@ pub fn build_page() -> gtk::Box {
     let show_d = show_gpu.clone();
     da.set_draw_func(move |_, cr, w, h| {
         let is_gpu = *show_d.borrow();
-        let pts = if is_gpu { gpu_d.borrow() } else { cpu_d.borrow() };
-        let (r, g, b) = if is_gpu { (0.2, 0.8, 1.0) } else { (1.0, 0.25, 0.4) };
+        let pts = if is_gpu {
+            gpu_d.borrow()
+        } else {
+            cpu_d.borrow()
+        };
+        let (r, g, b) = if is_gpu {
+            (0.2, 0.8, 1.0)
+        } else {
+            (1.0, 0.25, 0.4)
+        };
 
         let pad = 36.0_f64;
-        let aw  = w as f64 - 2.0 * pad;
-        let ah  = h as f64 - 2.0 * pad;
+        let aw = w as f64 - 2.0 * pad;
+        let ah = h as f64 - 2.0 * pad;
 
         let to_canvas = |temp: f64, speed: f64| -> (f64, f64) {
-            (pad + (temp - 40.0) / 60.0 * aw,
-             pad + (1.0 - speed / 100.0) * ah)
+            (
+                pad + (temp - 40.0) / 60.0 * aw,
+                pad + (1.0 - speed / 100.0) * ah,
+            )
         };
 
         // Background transparent
@@ -467,9 +535,13 @@ pub fn build_page() -> gtk::Box {
         cr.set_source_rgba(0.5, 0.5, 0.5, 0.15);
         for i in 1..=4 {
             let x = pad + aw * i as f64 / 4.0;
-            cr.move_to(x, pad); cr.line_to(x, pad + ah); let _ = cr.stroke();
+            cr.move_to(x, pad);
+            cr.line_to(x, pad + ah);
+            let _ = cr.stroke();
             let y = pad + ah * i as f64 / 4.0;
-            cr.move_to(pad, y); cr.line_to(pad + aw, y); let _ = cr.stroke();
+            cr.move_to(pad, y);
+            cr.line_to(pad + aw, y);
+            let _ = cr.stroke();
         }
 
         // Axes border
@@ -479,7 +551,11 @@ pub fn build_page() -> gtk::Box {
         let _ = cr.stroke();
 
         // Axis labels
-        cr.select_font_face("Sans", gtk::cairo::FontSlant::Normal, gtk::cairo::FontWeight::Normal);
+        cr.select_font_face(
+            "Sans",
+            gtk::cairo::FontSlant::Normal,
+            gtk::cairo::FontWeight::Normal,
+        );
         cr.set_font_size(9.0);
         cr.set_source_rgba(0.5, 0.5, 0.5, 1.0);
         for (i, temp) in [40, 55, 70, 85, 100].iter().enumerate() {
@@ -508,8 +584,10 @@ pub fn build_page() -> gtk::Box {
         let _ = cr.show_text("TEMP °C");
 
         // Fill under curve
-        if pts.is_empty() { return; }
-        
+        if pts.is_empty() {
+            return;
+        }
+
         let (x0, y0) = to_canvas(pts[0].0, pts[0].1);
         cr.move_to(x0, pad + ah);
         cr.line_to(x0, y0);
@@ -559,17 +637,21 @@ pub fn build_page() -> gtk::Box {
 
     let gesture = gtk::GestureDrag::new();
 
-    let cpu_p  = cpu_pts.clone();
-    let gpu_p  = gpu_pts.clone();
+    let cpu_p = cpu_pts.clone();
+    let gpu_p = gpu_pts.clone();
     let show_p = show_gpu.clone();
     let drag_p = dragging.clone();
-    let da_p   = da.clone();
+    let da_p = da.clone();
     gesture.connect_drag_begin(move |_, x, y| {
         let is_gpu = *show_p.borrow();
-        let pts = if is_gpu { gpu_p.borrow() } else { cpu_p.borrow() };
+        let pts = if is_gpu {
+            gpu_p.borrow()
+        } else {
+            cpu_p.borrow()
+        };
         let pad = 36.0_f64;
-        let aw  = da_p.width()  as f64 - 2.0 * pad;
-        let ah  = da_p.height() as f64 - 2.0 * pad;
+        let aw = da_p.width() as f64 - 2.0 * pad;
+        let ah = da_p.height() as f64 - 2.0 * pad;
         for (i, p) in pts.iter().enumerate() {
             let cx = pad + (p.0 - 40.0) / 60.0 * aw;
             let cy = pad + (1.0 - p.1 / 100.0) * ah;
@@ -580,32 +662,40 @@ pub fn build_page() -> gtk::Box {
         }
     });
 
-    let cpu_u  = cpu_pts.clone();
-    let gpu_u  = gpu_pts.clone();
+    let cpu_u = cpu_pts.clone();
+    let gpu_u = gpu_pts.clone();
     let show_u = show_gpu.clone();
     let drag_u = dragging.clone();
-    let da_u   = da.clone();
+    let da_u = da.clone();
     gesture.connect_drag_update(move |g, _ox, oy| {
-        let idx = match *drag_u.borrow() { Some(i) => i, None => return };
+        let idx = match *drag_u.borrow() {
+            Some(i) => i,
+            None => return,
+        };
         if let Some((_sx, sy)) = g.start_point() {
             let pad = 36.0_f64;
-            let ah  = da_u.height() as f64 - 2.0 * pad;
-            let y   = (sy + oy).clamp(pad, pad + ah);
+            let ah = da_u.height() as f64 - 2.0 * pad;
+            let y = (sy + oy).clamp(pad, pad + ah);
             let new_speed = ((1.0 - (y - pad) / ah) * 100.0).clamp(0.0, 100.0);
             let is_gpu = *show_u.borrow();
-            if is_gpu { gpu_u.borrow_mut()[idx].1 = new_speed; }
-            else       { cpu_u.borrow_mut()[idx].1 = new_speed; }
+            if is_gpu {
+                gpu_u.borrow_mut()[idx].1 = new_speed;
+            } else {
+                cpu_u.borrow_mut()[idx].1 = new_speed;
+            }
             da_u.queue_draw();
         }
     });
 
     let drag_e = dragging.clone();
-    gesture.connect_drag_end(move |_, _, _| { *drag_e.borrow_mut() = None; });
+    gesture.connect_drag_end(move |_, _, _| {
+        *drag_e.borrow_mut() = None;
+    });
     da.add_controller(gesture);
 
     // ── CPU / GPU pill toggle ─────────────────────────────────────────────────
     let show_cpu_pill = show_gpu.clone();
-    let da_cpu_pill   = da.clone();
+    let da_cpu_pill = da.clone();
     cpu_pill_btn.connect_toggled(move |btn| {
         if btn.is_active() {
             *show_cpu_pill.borrow_mut() = false;
@@ -614,7 +704,7 @@ pub fn build_page() -> gtk::Box {
     });
 
     let show_gpu_pill = show_gpu.clone();
-    let da_gpu_pill   = da.clone();
+    let da_gpu_pill = da.clone();
     gpu_pill_btn.connect_toggled(move |btn| {
         if btn.is_active() {
             *show_gpu_pill.borrow_mut() = true;
@@ -636,9 +726,7 @@ pub fn build_page() -> gtk::Box {
         .build();
     bottom_box.append(&preset_name_entry);
 
-    let save_preset_btn = gtk::Button::builder()
-        .label(i18n::t("save_preset"))
-        .build();
+    let save_preset_btn = gtk::Button::builder().label(i18n::t("save_preset")).build();
     bottom_box.append(&save_preset_btn);
 
     let delete_btn = gtk::Button::builder()
@@ -656,7 +744,9 @@ pub fn build_page() -> gtk::Box {
     curve_revealer.set_child(Some(&curve_card));
 
     let rev1 = curve_revealer.clone();
-    custom_btn.connect_toggled(move |b| { rev1.set_reveal_child(b.is_active()); });
+    custom_btn.connect_toggled(move |b| {
+        rev1.set_reveal_child(b.is_active());
+    });
 
     let click_gesture = gtk::GestureClick::new();
     let rev_click = curve_revealer.clone();
@@ -684,11 +774,16 @@ pub fn build_page() -> gtk::Box {
     let page_save = page.clone();
     save_preset_btn.connect_clicked(move |_| {
         let name = preset_name_save.text().to_string();
-        if name.trim().is_empty() { return; }
+        if name.trim().is_empty() {
+            return;
+        }
         let pts = cpu_pts_save.borrow().clone();
-        let preset = crate::fan_presets::FanPreset { name: name.clone(), points: pts.clone() };
+        let preset = crate::fan_presets::FanPreset {
+            name: name.clone(),
+            points: pts.clone(),
+        };
         let mut loaded = crate::fan_presets::load_presets();
-        
+
         let mut exists = false;
         if let Some(pos) = loaded.iter().position(|p| p.name == name) {
             loaded[pos] = preset.clone();
@@ -709,9 +804,11 @@ pub fn build_page() -> gtk::Box {
     let entry_del = preset_name_entry.clone();
     delete_btn.connect_clicked(move |_| {
         let name = entry_del.text().to_string();
-        if name.trim().is_empty() { return; }
+        if name.trim().is_empty() {
+            return;
+        }
         crate::fan_presets::delete_preset(&name);
-        
+
         // Remove from UI dynamically
         let mut child = fan_box_del.first_child();
         while let Some(c) = child {
@@ -731,7 +828,11 @@ pub fn build_page() -> gtk::Box {
 }
 
 /// Thick rectangular chip toggle card (for performance modes).
-pub fn build_chip_card(icon_path: &str, title: &str, subtitle: &str) -> (gtk::ToggleButton, gtk::Box) {
+pub fn build_chip_card(
+    icon_path: &str,
+    title: &str,
+    subtitle: &str,
+) -> (gtk::ToggleButton, gtk::Box) {
     let btn = gtk::ToggleButton::builder()
         .css_classes(["chip-card"])
         .build();
@@ -750,20 +851,36 @@ pub fn build_chip_card(icon_path: &str, title: &str, subtitle: &str) -> (gtk::To
         .spacing(3)
         .valign(gtk::Align::Center)
         .build();
-    text_col.append(&gtk::Label::builder()
-        .label(title).css_classes(["chip-title"]).halign(gtk::Align::Start).build());
-    text_col.append(&gtk::Label::builder()
-        .label(subtitle).css_classes(["chip-sub"]).halign(gtk::Align::Start).build());
+    text_col.append(
+        &gtk::Label::builder()
+            .label(title)
+            .css_classes(["chip-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    text_col.append(
+        &gtk::Label::builder()
+            .label(subtitle)
+            .css_classes(["chip-sub"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     inner.append(&text_col);
     btn.set_child(Some(&inner));
 
-    let wrap = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+    let wrap = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .build();
     wrap.append(&btn);
     (btn, wrap)
 }
 
 /// Thin compact rectangular chip toggle card (for fan modes).
-pub fn build_fan_chip_card(icon_path: &str, title: &str, subtitle: &str) -> (gtk::ToggleButton, gtk::Box) {
+pub fn build_fan_chip_card(
+    icon_path: &str,
+    title: &str,
+    subtitle: &str,
+) -> (gtk::ToggleButton, gtk::Box) {
     let btn = gtk::ToggleButton::builder()
         .css_classes(["fan-chip-card"])
         .build();
@@ -782,18 +899,29 @@ pub fn build_fan_chip_card(icon_path: &str, title: &str, subtitle: &str) -> (gtk
         .spacing(1)
         .valign(gtk::Align::Center)
         .build();
-    text_col.append(&gtk::Label::builder()
-        .label(title).css_classes(["fan-chip-title"]).halign(gtk::Align::Start).build());
-    text_col.append(&gtk::Label::builder()
-        .label(subtitle).css_classes(["fan-chip-sub"]).halign(gtk::Align::Start).build());
+    text_col.append(
+        &gtk::Label::builder()
+            .label(title)
+            .css_classes(["fan-chip-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    text_col.append(
+        &gtk::Label::builder()
+            .label(subtitle)
+            .css_classes(["fan-chip-sub"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     inner.append(&text_col);
     btn.set_child(Some(&inner));
 
-    let wrap = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+    let wrap = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .build();
     wrap.append(&btn);
     (btn, wrap)
 }
-
 
 fn add_preset_to_box(
     preset: crate::fan_presets::FanPreset,
@@ -802,7 +930,11 @@ fn add_preset_to_box(
     page: &gtk::Box,
 ) {
     let preset_clone = preset.clone();
-    let (p_btn, p_wrap) = build_fan_chip_card(&crate::asset_resolver::get_asset_path("custom.svg"), &preset.name, i18n::t("preset_sub"));
+    let (p_btn, p_wrap) = build_fan_chip_card(
+        &crate::asset_resolver::get_asset_path("custom.svg"),
+        &preset.name,
+        i18n::t("preset_sub"),
+    );
     p_wrap.set_widget_name(&preset.name);
     p_btn.set_group(Some(auto_btn));
     p_btn.connect_toggled(move |btn| {
@@ -813,10 +945,10 @@ fn add_preset_to_box(
             crate::daemon_client::set_fan_mode_sync("custom".to_string());
         }
     });
-    
+
     let overlay = gtk::Overlay::new();
     overlay.set_child(Some(&p_wrap));
-    
+
     let actions_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(4)
@@ -825,30 +957,34 @@ fn add_preset_to_box(
         .margin_top(4)
         .margin_end(4)
         .build();
-        
+
     let edit_btn = gtk::Button::builder()
         .icon_name("document-edit-symbolic")
         .css_classes(["circular", "flat"])
         .build();
-        
+
     let del_btn = gtk::Button::builder()
         .icon_name("user-trash-symbolic")
         .css_classes(["circular", "flat", "destructive-action"])
         .build();
-        
+
     actions_box.append(&edit_btn);
     actions_box.append(&del_btn);
     actions_box.set_opacity(0.0);
-    
+
     overlay.add_overlay(&actions_box);
-    
+
     let hover = gtk::EventControllerMotion::new();
     let act_clone = actions_box.clone();
-    hover.connect_enter(move |_, _, _| { act_clone.set_opacity(1.0); });
+    hover.connect_enter(move |_, _, _| {
+        act_clone.set_opacity(1.0);
+    });
     let act_clone2 = actions_box.clone();
-    hover.connect_leave(move |_| { act_clone2.set_opacity(0.0); });
+    hover.connect_leave(move |_| {
+        act_clone2.set_opacity(0.0);
+    });
     overlay.add_controller(hover);
-    
+
     let win = page.clone();
     let p_name = preset.name.clone();
     let p_points = preset.points.clone();
@@ -877,11 +1013,11 @@ fn add_preset_to_box(
                     let p: Vec<_> = p.into_iter().filter(|x| x.name != p_n2).collect();
                     crate::fan_presets::save_presets(&p);
                     f_box.remove(&o_lay);
-                }
+                },
             );
         }
     });
-    
+
     let p_name2 = preset.name.clone();
     let fan_box_c2 = fan_box.clone();
     let overlay_c2 = overlay.clone();

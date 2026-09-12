@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use evdev::{Device, Key};
 use futures::StreamExt;
-use std::sync::atomic::{AtomicBool, Ordering};
 use log::info;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
 pub struct KeyEventInfo {
@@ -23,14 +23,17 @@ impl EvdevMonitor {
     pub fn new() -> Self {
         let recent_keys = Arc::new(Mutex::new(Vec::new()));
         let active = Arc::new(AtomicBool::new(false));
-        
+
         let keys_clone = recent_keys.clone();
         let active_clone = active.clone();
         tokio::spawn(async move {
             Self::monitor_loop(keys_clone, active_clone).await;
         });
 
-        Self { recent_keys, active }
+        Self {
+            recent_keys,
+            active,
+        }
     }
 
     pub fn set_active(&self, enabled: bool) {
@@ -53,8 +56,14 @@ impl EvdevMonitor {
                     let path = entry.path();
                     if path.to_string_lossy().contains("event") {
                         if let Ok(dev) = Device::open(&path) {
-                            if dev.supported_keys().map_or(false, |k| k.contains(Key::KEY_A)) {
-                                let is_mouse = dev.supported_relative_axes().map_or(false, |a| a.contains(evdev::RelativeAxisType::REL_X) || a.contains(evdev::RelativeAxisType::REL_Y));
+                            if dev
+                                .supported_keys()
+                                .map_or(false, |k| k.contains(Key::KEY_A))
+                            {
+                                let is_mouse = dev.supported_relative_axes().map_or(false, |a| {
+                                    a.contains(evdev::RelativeAxisType::REL_X)
+                                        || a.contains(evdev::RelativeAxisType::REL_Y)
+                                });
                                 if !is_mouse {
                                     if let Ok(stream) = dev.into_event_stream() {
                                         info!("EvdevMonitor: listening to {:?}", path);
@@ -102,19 +111,41 @@ impl EvdevMonitor {
     fn map_keycode(code: u16) -> (f64, f64) {
         // Approximate mapping mapping to 0..14 (x) and 0..5 (y)
         let x = code as f64 % 15.0;
-        if code == Key::KEY_ESC.code() || (code >= Key::KEY_F1.code() && code <= Key::KEY_F12.code()) {
+        if code == Key::KEY_ESC.code()
+            || (code >= Key::KEY_F1.code() && code <= Key::KEY_F12.code())
+        {
             (x, 0.0)
-        } else if code == Key::KEY_GRAVE.code() || (code >= Key::KEY_1.code() && code <= Key::KEY_EQUAL.code()) || code == Key::KEY_BACKSPACE.code() {
+        } else if code == Key::KEY_GRAVE.code()
+            || (code >= Key::KEY_1.code() && code <= Key::KEY_EQUAL.code())
+            || code == Key::KEY_BACKSPACE.code()
+        {
             (x, 1.0)
-        } else if code == Key::KEY_TAB.code() || (code >= Key::KEY_Q.code() && code <= Key::KEY_RIGHTBRACE.code()) || code == Key::KEY_BACKSLASH.code() {
+        } else if code == Key::KEY_TAB.code()
+            || (code >= Key::KEY_Q.code() && code <= Key::KEY_RIGHTBRACE.code())
+            || code == Key::KEY_BACKSLASH.code()
+        {
             (x, 2.0)
-        } else if code == Key::KEY_CAPSLOCK.code() || (code >= Key::KEY_A.code() && code <= Key::KEY_APOSTROPHE.code()) || code == Key::KEY_ENTER.code() {
+        } else if code == Key::KEY_CAPSLOCK.code()
+            || (code >= Key::KEY_A.code() && code <= Key::KEY_APOSTROPHE.code())
+            || code == Key::KEY_ENTER.code()
+        {
             (x, 3.0)
-        } else if code == Key::KEY_LEFTSHIFT.code() || (code >= Key::KEY_Z.code() && code <= Key::KEY_SLASH.code()) || code == Key::KEY_RIGHTSHIFT.code() {
+        } else if code == Key::KEY_LEFTSHIFT.code()
+            || (code >= Key::KEY_Z.code() && code <= Key::KEY_SLASH.code())
+            || code == Key::KEY_RIGHTSHIFT.code()
+        {
             (x, 4.0)
-        } else if code == Key::KEY_LEFTCTRL.code() || code == Key::KEY_LEFTMETA.code() || code == Key::KEY_LEFTALT.code() || code == Key::KEY_SPACE.code() {
+        } else if code == Key::KEY_LEFTCTRL.code()
+            || code == Key::KEY_LEFTMETA.code()
+            || code == Key::KEY_LEFTALT.code()
+            || code == Key::KEY_SPACE.code()
+        {
             (7.0, 5.0)
-        } else if code == Key::KEY_UP.code() || code == Key::KEY_DOWN.code() || code == Key::KEY_LEFT.code() || code == Key::KEY_RIGHT.code() {
+        } else if code == Key::KEY_UP.code()
+            || code == Key::KEY_DOWN.code()
+            || code == Key::KEY_LEFT.code()
+            || code == Key::KEY_RIGHT.code()
+        {
             (12.0, 5.0)
         } else {
             (7.0, 2.0)
