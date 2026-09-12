@@ -1,15 +1,15 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
-use std::process::Command;
-use serde::{Serialize, Deserialize};
-use zbus::interface;
-use std::sync::OnceLock;
-use std::sync::Mutex;
 use std::path::PathBuf;
+use std::process::Command;
+use std::sync::Mutex;
+use std::sync::OnceLock;
+use zbus::interface;
 
 /* ─────────────────────────────────────────────────────────────
-   sys_monitor.rs — Ultra Lightweight, Zero-Fork Live Telemetry
-   High-performance Linux sysfs/procfs parser with Jiffies Delta
-   ───────────────────────────────────────────────────────────── */
+sys_monitor.rs — Ultra Lightweight, Zero-Fork Live Telemetry
+High-performance Linux sysfs/procfs parser with Jiffies Delta
+───────────────────────────────────────────────────────────── */
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SystemStats {
@@ -102,18 +102,31 @@ fn init_sensor_paths() -> SensorPaths {
                 let name = name.trim();
                 if name == "coretemp" || name == "k10temp" || name == "zenpower" {
                     let t1 = entry.join("temp1_input");
-                    if t1.exists() { cpu_temp_path = Some(t1); }
+                    if t1.exists() {
+                        cpu_temp_path = Some(t1);
+                    }
                     let p1 = entry.join("power1_input");
-                    if p1.exists() { cpu_pwr_path = Some(p1); }
+                    if p1.exists() {
+                        cpu_pwr_path = Some(p1);
+                    }
                 } else if name == "hp_wmi" || name == "hp" || name == "omen" {
                     let f1 = entry.join("fan1_input");
-                    if f1.exists() { fan1_path = Some(f1); }
+                    if f1.exists() {
+                        fan1_path = Some(f1);
+                    }
                     let f2 = entry.join("fan2_input");
-                    if f2.exists() { fan2_path = Some(f2); }
-                } else if name.contains("nouveau") || name.contains("amdgpu") || name.contains("nvidia") {
+                    if f2.exists() {
+                        fan2_path = Some(f2);
+                    }
+                } else if name.contains("nouveau")
+                    || name.contains("amdgpu")
+                    || name.contains("nvidia")
+                {
                     let t1 = entry.join("temp1_input");
-                    if t1.exists() { gpu_temp_path = Some(t1); }
-                    
+                    if t1.exists() {
+                        gpu_temp_path = Some(t1);
+                    }
+
                     let p1_avg = entry.join("power1_average");
                     let p1_inp = entry.join("power1_input");
                     if p1_avg.exists() {
@@ -126,12 +139,14 @@ fn init_sensor_paths() -> SensorPaths {
         }
     }
 
-    if let Ok(entries) = glob::glob("/sys/devices/system/cpu/cpu*/thermal_throttle/package_throttle_count") {
+    if let Ok(entries) =
+        glob::glob("/sys/devices/system/cpu/cpu*/thermal_throttle/package_throttle_count")
+    {
         for entry in entries.filter_map(Result::ok) {
             throttle_paths.push(entry);
         }
     }
-    
+
     if let Ok(mut entries) = glob::glob("/sys/class/powercap/intel-rapl:0/energy_uj") {
         if let Some(Ok(entry)) = entries.next() {
             rapl_energy_path = Some(entry);
@@ -161,197 +176,217 @@ fn init_sensor_paths() -> SensorPaths {
 }
 
 pub fn get_hardware_specs() -> HardwareSpecs {
-    SPECS_CACHE.get_or_init(|| {
-        let mut specs = HardwareSpecs::default();
+    SPECS_CACHE
+        .get_or_init(|| {
+            let mut specs = HardwareSpecs::default();
 
-        // 1. Product Name
-        let mut prod = fs::read_to_string("/sys/class/dmi/id/product_name")
-            .unwrap_or_else(|_| "Victus by HP Gaming Laptop".to_string())
-            .trim()
-            .to_string();
-        if prod.is_empty() {
-            prod = "Victus by HP Gaming Laptop 16".to_string();
-        }
-        specs.product_name = prod;
-
-        // 2. CPU info
-        let mut cpu_name = String::from("Intel Core Processor");
-        let mut cpu_cores = 0;
-        if let Ok(cpuinfo) = fs::read_to_string("/proc/cpuinfo") {
-            for line in cpuinfo.lines() {
-                if line.starts_with("model name") && cpu_name.starts_with("Intel Core Processor") {
-                    if let Some(name) = line.split(':').nth(1) {
-                        cpu_name = name.trim().to_string();
-                    }
-                }
-                if line.starts_with("processor") {
-                    cpu_cores += 1;
-                }
+            // 1. Product Name
+            let mut prod = fs::read_to_string("/sys/class/dmi/id/product_name")
+                .unwrap_or_else(|_| "Victus by HP Gaming Laptop".to_string())
+                .trim()
+                .to_string();
+            if prod.is_empty() {
+                prod = "Victus by HP Gaming Laptop 16".to_string();
             }
-        }
-        let clean_cpu = cpu_name
-            .replace("(R)", "")
-            .replace("(TM)", "")
-            .replace("12th Gen ", "")
-            .replace("13th Gen ", "")
-            .replace("14th Gen ", "")
-            .replace("15th Gen ", "")
-            .trim()
-            .to_string();
-        specs.cpu_spec = if cpu_cores > 0 {
-            format!("{}  ·  {} Threads", clean_cpu, cpu_cores)
-        } else {
-            clean_cpu
-        };
+            specs.product_name = prod;
 
-        // 3. GPU info
-        let mut gpu_str = String::from("Unknown GPU");
-        if let Ok(output) = Command::new("nvidia-smi")
-            .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
-            .output()
-        {
-            let out_str = String::from_utf8_lossy(&output.stdout);
-            let parts: Vec<&str> = out_str.trim().split(',').collect();
-            if parts.len() >= 2 {
-                let name = parts[0].trim();
-                if let Ok(mb) = parts[1].trim().parse::<f64>() {
-                    let gb = (mb / 1024.0).round() as i32;
-                    gpu_str = format!("{}  ·  {} GB VRAM", name, gb);
-                } else {
-                    gpu_str = name.to_string();
-                }
-            } else if !parts.is_empty() && !parts[0].is_empty() {
-                gpu_str = parts[0].trim().to_string();
-            }
-        }
-        if gpu_str == "Unknown GPU" {
-            if let Ok(output) = Command::new("lspci").output() {
-                let out_str = String::from_utf8_lossy(&output.stdout);
-                for line in out_str.lines() {
-                    if (line.contains("VGA compatible controller") || line.contains("3D controller"))
-                        && (line.contains("NVIDIA") || line.contains("AMD") || line.contains("Intel"))
+            // 2. CPU info
+            let mut cpu_name = String::from("Intel Core Processor");
+            let mut cpu_cores = 0;
+            if let Ok(cpuinfo) = fs::read_to_string("/proc/cpuinfo") {
+                for line in cpuinfo.lines() {
+                    if line.starts_with("model name")
+                        && cpu_name.starts_with("Intel Core Processor")
                     {
-                        if line.contains("NVIDIA") || (gpu_str == "Unknown GPU" && (line.contains("AMD") || line.contains("Intel"))) {
-                            if let Some(pos) = line.find(": ") {
-                                let desc = &line[pos + 2..];
-                                let clean = if let Some(bracket_end) = desc.find("]: ") {
-                                    &desc[bracket_end + 3..]
-                                } else {
-                                    desc
-                                };
-                                gpu_str = clean.trim().to_string();
+                        if let Some(name) = line.split(':').nth(1) {
+                            cpu_name = name.trim().to_string();
+                        }
+                    }
+                    if line.starts_with("processor") {
+                        cpu_cores += 1;
+                    }
+                }
+            }
+            let clean_cpu = cpu_name
+                .replace("(R)", "")
+                .replace("(TM)", "")
+                .replace("12th Gen ", "")
+                .replace("13th Gen ", "")
+                .replace("14th Gen ", "")
+                .replace("15th Gen ", "")
+                .trim()
+                .to_string();
+            specs.cpu_spec = if cpu_cores > 0 {
+                format!("{}  ·  {} Threads", clean_cpu, cpu_cores)
+            } else {
+                clean_cpu
+            };
+
+            // 3. GPU info
+            let mut gpu_str = String::from("Unknown GPU");
+            if let Ok(output) = Command::new("nvidia-smi")
+                .args([
+                    "--query-gpu=name,memory.total",
+                    "--format=csv,noheader,nounits",
+                ])
+                .output()
+            {
+                let out_str = String::from_utf8_lossy(&output.stdout);
+                let parts: Vec<&str> = out_str.trim().split(',').collect();
+                if parts.len() >= 2 {
+                    let name = parts[0].trim();
+                    if let Ok(mb) = parts[1].trim().parse::<f64>() {
+                        let gb = (mb / 1024.0).round() as i32;
+                        gpu_str = format!("{}  ·  {} GB VRAM", name, gb);
+                    } else {
+                        gpu_str = name.to_string();
+                    }
+                } else if !parts.is_empty() && !parts[0].is_empty() {
+                    gpu_str = parts[0].trim().to_string();
+                }
+            }
+            if gpu_str == "Unknown GPU" {
+                if let Ok(output) = Command::new("lspci").output() {
+                    let out_str = String::from_utf8_lossy(&output.stdout);
+                    for line in out_str.lines() {
+                        if (line.contains("VGA compatible controller")
+                            || line.contains("3D controller"))
+                            && (line.contains("NVIDIA")
+                                || line.contains("AMD")
+                                || line.contains("Intel"))
+                        {
+                            if line.contains("NVIDIA")
+                                || (gpu_str == "Unknown GPU"
+                                    && (line.contains("AMD") || line.contains("Intel")))
+                            {
+                                if let Some(pos) = line.find(": ") {
+                                    let desc = &line[pos + 2..];
+                                    let clean = if let Some(bracket_end) = desc.find("]: ") {
+                                        &desc[bracket_end + 3..]
+                                    } else {
+                                        desc
+                                    };
+                                    gpu_str = clean.trim().to_string();
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        specs.gpu_spec = gpu_str;
+            specs.gpu_spec = gpu_str;
 
-        // 4. RAM info
-        let mut total_gb = 16;
-        if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
-            for line in meminfo.lines() {
-                if line.starts_with("MemTotal:") {
-                    if let Some(val_str) = line.split_whitespace().nth(1) {
-                        if let Ok(kb) = val_str.parse::<f64>() {
-                            total_gb = (kb / 1024.0 / 1024.0).round() as i32;
+            // 4. RAM info
+            let mut total_gb = 16;
+            if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
+                for line in meminfo.lines() {
+                    if line.starts_with("MemTotal:") {
+                        if let Some(val_str) = line.split_whitespace().nth(1) {
+                            if let Ok(kb) = val_str.parse::<f64>() {
+                                total_gb = (kb / 1024.0 / 1024.0).round() as i32;
+                            }
                         }
+                        break;
                     }
-                    break;
                 }
             }
-        }
-        specs.ram_spec = format!("{} GB RAM", total_gb);
+            specs.ram_spec = format!("{} GB RAM", total_gb);
 
-        // 5. SSD Model & Size
-        let mut ssd_str = String::from("NVMe SSD");
-        if let Ok(entries) = glob::glob("/sys/block/nvme*n1/device/model") {
-            for entry in entries.filter_map(Result::ok) {
-                if let Ok(model) = fs::read_to_string(&entry) {
-                    let model = model.trim();
-                    if let Some(parent) = entry.parent().and_then(|p| p.parent()) {
-                        if let Ok(size_str) = fs::read_to_string(parent.join("size")) {
-                            if let Ok(sectors) = size_str.trim().parse::<f64>() {
-                                let gb = (sectors * 512.0 / 1_000_000_000.0).round() as i32;
-                                ssd_str = format!("{}  ·  {} GB NVMe", model, gb);
-                                break;
+            // 5. SSD Model & Size
+            let mut ssd_str = String::from("NVMe SSD");
+            if let Ok(entries) = glob::glob("/sys/block/nvme*n1/device/model") {
+                for entry in entries.filter_map(Result::ok) {
+                    if let Ok(model) = fs::read_to_string(&entry) {
+                        let model = model.trim();
+                        if let Some(parent) = entry.parent().and_then(|p| p.parent()) {
+                            if let Ok(size_str) = fs::read_to_string(parent.join("size")) {
+                                if let Ok(sectors) = size_str.trim().parse::<f64>() {
+                                    let gb = (sectors * 512.0 / 1_000_000_000.0).round() as i32;
+                                    ssd_str = format!("{}  ·  {} GB NVMe", model, gb);
+                                    break;
+                                }
+                            }
+                        }
+                        ssd_str = format!("{} NVMe", model);
+                        break;
+                    }
+                }
+            }
+            specs.ssd_spec = ssd_str;
+
+            // 6. OS & Kernel
+            let mut os_name = String::from("Linux");
+            if let Ok(os_release) = fs::read_to_string("/etc/os-release") {
+                for line in os_release.lines() {
+                    if line.starts_with("PRETTY_NAME=") {
+                        let val = line.trim_start_matches("PRETTY_NAME=").trim_matches('"');
+                        os_name = val.to_string();
+                        break;
+                    }
+                }
+            }
+            let kernel = fs::read_to_string("/proc/sys/kernel/osrelease")
+                .unwrap_or_else(|_| "Linux".to_string())
+                .trim()
+                .to_string();
+            specs.kernel_version = kernel.clone();
+            specs.os_spec = format!("{}  ·  Linux {}", os_name, kernel);
+
+            // 7. BIOS Version
+            if let Ok(bios) = fs::read_to_string("/sys/class/dmi/id/bios_version") {
+                specs.bios_version = bios.trim().to_string();
+            } else {
+                specs.bios_version = "Unknown".to_string();
+            }
+
+            // 7.1 EC Version
+            if let Ok(ec) = fs::read_to_string("/sys/class/dmi/id/ec_firmware_release") {
+                specs.ec_version = ec.trim().to_string();
+            } else {
+                specs.ec_version = "Unknown".to_string();
+            }
+
+            // 8. vBIOS Version
+            if let Ok(output) = Command::new("nvidia-smi")
+                .args(["--query-gpu=vbios_version", "--format=csv,noheader"])
+                .output()
+            {
+                let vbios = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                specs.vbios_version = if !vbios.is_empty() {
+                    vbios
+                } else {
+                    "Unknown".to_string()
+                };
+            } else {
+                specs.vbios_version = "Unknown".to_string();
+            }
+
+            // 9. NVIDIA Driver Version
+            specs.nvidia_driver = fs::read_to_string("/proc/driver/nvidia/version")
+                .ok()
+                .and_then(|content| {
+                    for line in content.lines() {
+                        if line.contains("NVRM version:") {
+                            let parts: Vec<&str> = line.split_whitespace().collect();
+                            for part in parts {
+                                if part.contains('.')
+                                    && part.chars().next().map_or(false, |c| c.is_ascii_digit())
+                                {
+                                    return Some(part.to_string());
+                                }
                             }
                         }
                     }
-                    ssd_str = format!("{} NVMe", model);
-                    break;
-                }
-            }
-        }
-        specs.ssd_spec = ssd_str;
+                    None
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
 
-        // 6. OS & Kernel
-        let mut os_name = String::from("Linux");
-        if let Ok(os_release) = fs::read_to_string("/etc/os-release") {
-            for line in os_release.lines() {
-                if line.starts_with("PRETTY_NAME=") {
-                    let val = line.trim_start_matches("PRETTY_NAME=").trim_matches('"');
-                    os_name = val.to_string();
-                    break;
-                }
-            }
-        }
-        let kernel = fs::read_to_string("/proc/sys/kernel/osrelease")
-            .unwrap_or_else(|_| "Linux".to_string())
-            .trim()
-            .to_string();
-        specs.kernel_version = kernel.clone();
-        specs.os_spec = format!("{}  ·  Linux {}", os_name, kernel);
-
-        // 7. BIOS Version
-        if let Ok(bios) = fs::read_to_string("/sys/class/dmi/id/bios_version") {
-            specs.bios_version = bios.trim().to_string();
-        } else {
-            specs.bios_version = "Unknown".to_string();
-        }
-
-        // 7.1 EC Version
-        if let Ok(ec) = fs::read_to_string("/sys/class/dmi/id/ec_firmware_release") {
-            specs.ec_version = ec.trim().to_string();
-        } else {
-            specs.ec_version = "Unknown".to_string();
-        }
-
-        // 8. vBIOS Version
-        if let Ok(output) = Command::new("nvidia-smi")
-            .args(["--query-gpu=vbios_version", "--format=csv,noheader"])
-            .output()
-        {
-            let vbios = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            specs.vbios_version = if !vbios.is_empty() { vbios } else { "Unknown".to_string() };
-        } else {
-            specs.vbios_version = "Unknown".to_string();
-        }
-
-        // 9. NVIDIA Driver Version
-        specs.nvidia_driver = fs::read_to_string("/proc/driver/nvidia/version")
-            .ok()
-            .and_then(|content| {
-                for line in content.lines() {
-                    if line.contains("NVRM version:") {
-                        let parts: Vec<&str> = line.split_whitespace().collect();
-                        for part in parts {
-                            if part.contains('.') && part.chars().next().map_or(false, |c| c.is_ascii_digit()) {
-                                return Some(part.to_string());
-                            }
-                        }
-                    }
-                }
-                None
-            })
-            .unwrap_or_else(|| "Unknown".to_string());
-
-        specs
-    }).clone()
+            specs
+        })
+        .clone()
 }
 fn get_nvidia_dgpu_path() -> Option<std::path::PathBuf> {
-    static NVIDIA_PATH: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    static NVIDIA_PATH: std::sync::OnceLock<Option<std::path::PathBuf>> =
+        std::sync::OnceLock::new();
     NVIDIA_PATH
         .get_or_init(|| {
             if let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") {
@@ -360,7 +395,8 @@ fn get_nvidia_dgpu_path() -> Option<std::path::PathBuf> {
                     let class = std::fs::read_to_string(path.join("class")).unwrap_or_default();
                     // Class 0x030000 (VGA) or 0x030200 (3D Controller) — ignores audio 0x040300
                     if class.trim().starts_with("0x03") {
-                        let vendor = std::fs::read_to_string(path.join("vendor")).unwrap_or_default();
+                        let vendor =
+                            std::fs::read_to_string(path.join("vendor")).unwrap_or_default();
                         if vendor.trim().eq_ignore_ascii_case("0x10de") {
                             return Some(path);
                         }
@@ -392,27 +428,40 @@ fn fetch_gpu_metrics_with_timeout() -> Option<GpuMetrics> {
     std::thread::spawn(move || {
         if let Ok(nvml) = nvml_wrapper::Nvml::init() {
             if let Ok(device) = nvml.device_by_index(0) {
-                let gfx = device.running_graphics_processes().map(|v| v.len()).unwrap_or(0);
-                let comp = device.running_compute_processes().map(|v| v.len()).unwrap_or(0);
+                let gfx = device
+                    .running_graphics_processes()
+                    .map(|v| v.len())
+                    .unwrap_or(0);
+                let comp = device
+                    .running_compute_processes()
+                    .map(|v| v.len())
+                    .unwrap_or(0);
                 let has_clients = (gfx + comp) > 0;
-                
+
                 let mut temp = None;
                 let mut power = None;
-                
+
                 if has_clients {
-                    if let Ok(t) = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu) {
+                    if let Ok(t) = device
+                        .temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu)
+                    {
                         temp = Some(t as i32);
                     }
                     if let Ok(p) = device.power_usage() {
                         power = Some(p as f64 / 1000.0);
                     }
                 }
-                let _ = tx.send(GpuMetrics { has_clients, temp, power });
+                let _ = tx.send(GpuMetrics {
+                    has_clients,
+                    temp,
+                    power,
+                });
             }
         }
     });
     rx.recv_timeout(std::time::Duration::from_millis(500)).ok()
 }
+#[allow(dead_code)]
 pub fn get_safe_gpu_temp() -> f64 {
     let nvidia_state = check_nvidia_state();
     let is_nvidia_awake = nvidia_state.unwrap_or(false);
@@ -432,26 +481,25 @@ pub fn get_safe_gpu_temp() -> f64 {
         }
     }
 
-    let mut has_active_clients = false;
     let mut gpu_temp = 0.0;
 
     // Check for actual running 3D or compute processes with timeout
     // to prevent hanging Tokio's blocking pool during NVIDIA power state transitions
-    if let Some(metrics) = fetch_gpu_metrics_with_timeout() {
-        has_active_clients = metrics.has_clients;
-        if has_active_clients {
-            // Active game/render client: clear cooldown and sample real temperature
-            {
-                let mut guard = GPU_IDLE_COOLDOWN.lock().unwrap_or_else(|e| e.into_inner());
-                *guard = None;
-            }
-            if let Some(t) = metrics.temp {
-                gpu_temp = t as f64;
-            }
+    let metrics = match fetch_gpu_metrics_with_timeout() {
+        Some(m) => m,
+        None => return 0.0,
+    };
+    let has_active_clients = metrics.has_clients;
+
+    if has_active_clients {
+        // Active game/render client: clear cooldown and sample real temperature
+        {
+            let mut guard = GPU_IDLE_COOLDOWN.lock().unwrap_or_else(|e| e.into_inner());
+            *guard = None;
         }
-    } else {
-        // NVML timeout (likely hanging in D3cold transition). Return 0.0 safely.
-        return 0.0;
+        if let Some(t) = metrics.temp {
+            gpu_temp = t as f64;
+        }
     }
 
     if !has_active_clients {
@@ -481,7 +529,7 @@ pub fn fetch_system_stats() -> SystemStats {
                 if parts.len() >= 4 {
                     let idle = parts[3] + parts.get(4).unwrap_or(&0); // idle + iowait
                     let total: u64 = parts.iter().sum();
-                    
+
                     let mut prev_guard = PREV_JIFFIES.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(ref prev) = *prev_guard {
                         let total_diff = total.saturating_sub(prev.total);
@@ -517,7 +565,11 @@ pub fn fetch_system_stats() -> SystemStats {
     }
 
     // ── 3. Disk Usage using df ──────────────────
-    if let Ok(out) = std::process::Command::new("df").arg("-BG").arg("/").output() {
+    if let Ok(out) = std::process::Command::new("df")
+        .arg("-BG")
+        .arg("/")
+        .output()
+    {
         let out_str = String::from_utf8_lossy(&out.stdout);
         if let Some(line) = out_str.lines().nth(1) {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -553,7 +605,10 @@ pub fn fetch_system_stats() -> SystemStats {
                         stats.cpu_pwr = (diff as f64 / elapsed) / 1_000_000.0;
                     }
                 }
-                *prev_guard = Some(RaplState { energy_uj: energy, time: now });
+                *prev_guard = Some(RaplState {
+                    energy_uj: energy,
+                    time: now,
+                });
             }
         }
     } else if let Some(ref p) = paths.cpu_pwr_path {
@@ -680,23 +735,45 @@ pub fn fetch_system_stats() -> SystemStats {
         }
     }
 
-    if stats.cpu_temp == 0 { stats.cpu_temp = 45; }
-    if stats.gpu_temp == 0 { stats.gpu_temp = stats.cpu_temp.saturating_sub(4); }
-    if stats.cpu_pwr == 0.0 && !real_pwr { stats.cpu_pwr = stats.total_pwr * 0.45; }
-    if stats.gpu_pwr == 0.0 && !real_pwr { stats.gpu_pwr = stats.total_pwr * 0.15; }
+    if stats.cpu_temp == 0 {
+        stats.cpu_temp = 45;
+    }
+    if stats.gpu_temp == 0 {
+        stats.gpu_temp = stats.cpu_temp.saturating_sub(4);
+    }
+    if stats.cpu_pwr == 0.0 && !real_pwr {
+        stats.cpu_pwr = stats.total_pwr * 0.45;
+    }
+    if stats.gpu_pwr == 0.0 && !real_pwr {
+        stats.gpu_pwr = stats.total_pwr * 0.15;
+    }
 
     if has_nvidia && !is_nvidia_awake {
         stats.gpu_pwr = -1.0;
     }
 
     // Sanitize any NaNs that might crash JSON serialization
-    if stats.cpu_load.is_nan() { stats.cpu_load = 0.0; }
-    if stats.cpu_pwr.is_nan() { stats.cpu_pwr = 0.0; }
-    if stats.gpu_load.is_nan() { stats.gpu_load = 0.0; }
-    if stats.gpu_pwr.is_nan() { stats.gpu_pwr = 0.0; }
-    if stats.ram_frac.is_nan() { stats.ram_frac = 0.0; }
-    if stats.disk_frac.is_nan() { stats.disk_frac = 0.0; }
-    if stats.total_pwr.is_nan() { stats.total_pwr = 0.0; }
+    if stats.cpu_load.is_nan() {
+        stats.cpu_load = 0.0;
+    }
+    if stats.cpu_pwr.is_nan() {
+        stats.cpu_pwr = 0.0;
+    }
+    if stats.gpu_load.is_nan() {
+        stats.gpu_load = 0.0;
+    }
+    if stats.gpu_pwr.is_nan() {
+        stats.gpu_pwr = 0.0;
+    }
+    if stats.ram_frac.is_nan() {
+        stats.ram_frac = 0.0;
+    }
+    if stats.disk_frac.is_nan() {
+        stats.disk_frac = 0.0;
+    }
+    if stats.total_pwr.is_nan() {
+        stats.total_pwr = 0.0;
+    }
 
     stats
 }
@@ -705,11 +782,15 @@ pub fn fetch_system_stats() -> SystemStats {
 fn parse_kb(line: &str) -> f64 {
     let mut parts = line.split_whitespace();
     parts.next();
-    parts.next().and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0)
+    parts
+        .next()
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(0.0)
 }
 
 /// Returns true if the current process is running as root (UID 0).
 /// Reads /proc/self/status to avoid a libc dependency.
+#[allow(dead_code)]
 fn nix_is_root() -> bool {
     std::fs::read_to_string("/proc/self/status")
         .ok()
@@ -768,11 +849,17 @@ impl SysMonInterface {
         let specs = get_hardware_specs();
         let stats = fetch_system_stats();
         let board_id = std::fs::read_to_string("/sys/class/dmi/id/board_name")
-            .unwrap_or_else(|_| "Unknown".to_string()).trim().to_string();
+            .unwrap_or_else(|_| "Unknown".to_string())
+            .trim()
+            .to_string();
         let manufacturer = std::fs::read_to_string("/sys/class/dmi/id/sys_vendor")
-            .unwrap_or_else(|_| "HP".to_string()).trim().to_string();
+            .unwrap_or_else(|_| "HP".to_string())
+            .trim()
+            .to_string();
         let product_name = std::fs::read_to_string("/sys/class/dmi/id/product_name")
-            .unwrap_or_else(|_| "Unknown".to_string()).trim().to_string();
+            .unwrap_or_else(|_| "Unknown".to_string())
+            .trim()
+            .to_string();
 
         let mut report = String::new();
         report.push_str("# OMENSpace Diagnostic Report\n\n");
@@ -785,9 +872,15 @@ impl SysMonInterface {
 
         // ── Environment ──────────────────────────────────────────
         report.push_str("## Environment\n\n| Field | Value |\n|-------|-------|\n");
-        report.push_str(&format!("| OMENSpace version | `{}` |\n", env!("CARGO_PKG_VERSION")));
+        report.push_str(&format!(
+            "| OMENSpace version | `{}` |\n",
+            env!("CARGO_PKG_VERSION")
+        ));
         report.push_str(&format!("| OS                | `{}` |\n", specs.os_spec));
-        report.push_str(&format!("| Kernel            | `{}` |\n", specs.kernel_version));
+        report.push_str(&format!(
+            "| Kernel            | `{}` |\n",
+            specs.kernel_version
+        ));
 
         // ── Hardware Probe ───────────────────────────────────────
         report.push_str("\n## Hardware Probe\n\n| Field | Value |\n|-------|-------|\n");
@@ -804,17 +897,31 @@ impl SysMonInterface {
         report.push_str("\n## Live Fan Telemetry\n\n");
         // Show both fans individually; fall back to max if fan2 is not exposed
         if stats.fan1_rpm > 0 || stats.fan2_rpm > 0 {
-            report.push_str(&format!("- CPU Fan (fan1): {} RPM (CPU Temp: {} °C)\n", stats.fan1_rpm, stats.cpu_temp));
+            report.push_str(&format!(
+                "- CPU Fan (fan1): {} RPM (CPU Temp: {} °C)\n",
+                stats.fan1_rpm, stats.cpu_temp
+            ));
             if stats.fan2_rpm > 0 {
-                report.push_str(&format!("- GPU Fan (fan2): {} RPM (GPU Temp: {} °C)\n", stats.fan2_rpm, stats.gpu_temp));
+                report.push_str(&format!(
+                    "- GPU Fan (fan2): {} RPM (GPU Temp: {} °C)\n",
+                    stats.fan2_rpm, stats.gpu_temp
+                ));
             } else {
-                report.push_str(&format!("- GPU Fan (fan2): not exposed by hwmon (GPU Temp: {} °C)\n", stats.gpu_temp));
+                report.push_str(&format!(
+                    "- GPU Fan (fan2): not exposed by hwmon (GPU Temp: {} °C)\n",
+                    stats.gpu_temp
+                ));
             }
         } else {
-            report.push_str(&format!("- Fan RPM: {} (individual fans not resolved — check hwmon)\n", stats.fan_rpm));
+            report.push_str(&format!(
+                "- Fan RPM: {} (individual fans not resolved — check hwmon)\n",
+                stats.fan_rpm
+            ));
         }
-        report.push_str(&format!("- CPU Power: {:.1} W  |  GPU Power: {:.1} W  |  Total: {:.1} W\n",
-            stats.cpu_pwr, stats.gpu_pwr, stats.total_pwr));
+        report.push_str(&format!(
+            "- CPU Power: {:.1} W  |  GPU Power: {:.1} W  |  Total: {:.1} W\n",
+            stats.cpu_pwr, stats.gpu_pwr, stats.total_pwr
+        ));
 
         // ── hwmon Path Probe ─────────────────────────────────────
         report.push_str("\n## hwmon Sensor Paths\n\n");
@@ -822,8 +929,8 @@ impl SysMonInterface {
         report.push_str("|-------|--------|-----------|-----------|-------------|\n");
         if let Ok(entries) = glob::glob("/sys/class/hwmon/hwmon*") {
             for entry in entries.filter_map(Result::ok) {
-                let name = std::fs::read_to_string(entry.join("name"))
-                    .unwrap_or_else(|_| "?".to_string());
+                let name =
+                    std::fs::read_to_string(entry.join("name")).unwrap_or_else(|_| "?".to_string());
                 let name = name.trim();
                 let fan1 = std::fs::read_to_string(entry.join("fan1_input"))
                     .map(|v| v.trim().to_string())
@@ -834,12 +941,15 @@ impl SysMonInterface {
                 let pwm1 = std::fs::read_to_string(entry.join("pwm1_enable"))
                     .map(|v| v.trim().to_string())
                     .unwrap_or_else(|_| "—".to_string());
-                let hwmon_name = entry.file_name()
+                let hwmon_name = entry
+                    .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default();
                 if fan1 != "—" || fan2 != "—" || pwm1 != "—" {
-                    report.push_str(&format!("| `{}` | `{}` | {} RPM | {} RPM | {} |\n",
-                        hwmon_name, name, fan1, fan2, pwm1));
+                    report.push_str(&format!(
+                        "| `{}` | `{}` | {} RPM | {} RPM | {} |\n",
+                        hwmon_name, name, fan1, fan2, pwm1
+                    ));
                 }
             }
         }
@@ -847,21 +957,7 @@ impl SysMonInterface {
         // ── EC Registers Snapshot ────────────────────────────────
         report.push_str("\n## EC Registers — Snapshot\n\n");
 
-        // Try to load ec_sys with write_support so debugfs exposes the io node
-        let _ = std::process::Command::new("modprobe")
-            .args(["ec_sys", "write_support=1"])
-            .output();
-        // Also ensure debugfs is mounted if not already present
-        if !std::path::Path::new("/sys/kernel/debug").exists() {
-            let _ = std::process::Command::new("mount")
-                .args(["-t", "debugfs", "none", "/sys/kernel/debug"])
-                .output();
-        }
-
-        let debugfs_mounted = std::path::Path::new("/sys/kernel/debug").exists();
         let ec_path = "/sys/kernel/debug/ec/ec0/io";
-        let ec_path_exists = std::path::Path::new(ec_path).exists();
-
         if let Ok(ec_data) = std::fs::read(ec_path) {
             report.push_str("```\n");
             for (i, byte) in ec_data.iter().enumerate().take(256) {
@@ -875,27 +971,10 @@ impl SysMonInterface {
             }
             report.push_str("```\n");
         } else {
-            // Provide a structured troubleshooting block instead of a bare error
-            report.push_str(&format!(
-                "> **EC read unavailable** — run the commands below as root and regenerate.\n\
-                >\n\
-                > | Check | Status |\n\
-                > |-------|--------|\n\
-                > | Running as root | {} |\n\
-                > | debugfs mounted at /sys/kernel/debug | {} |\n\
-                > | ec_sys io node exists | {} |\n\
-                >\n\
-                > **Quick fix:**\n\
-                > ```bash\n\
-                > sudo modprobe ec_sys write_support=1\n\
-                > sudo mount -t debugfs none /sys/kernel/debug   # if not already mounted\n\
-                > ls /sys/kernel/debug/ec/ec0/io                 # should exist now\n\
-                > ```\n\
-                > Then regenerate this report from the OMENSpace Debug panel.\n",
-                if std::env::var("USER").unwrap_or_default() == "root" || nix_is_root() { "✅ Yes" } else { "❌ No — reopen OMENSpace as root or via pkexec" },
-                if debugfs_mounted { "✅ Mounted" } else { "❌ Not mounted" },
-                if ec_path_exists { "✅ Present" } else { "❌ Missing (ec_sys not loaded or read_support=0)" },
-            ));
+            report.push_str(
+                "> **EC direct read unavailable** — direct EC debugfs access is not active or supported on this system.\n\
+                 > (Raw EC probing is disabled in OMEN-HUB in favor of standard kernel hwmon/WMI interfaces).\n"
+            );
         }
 
         // ── dmesg — hp-wmi / ACPI excerpt ───────────────────────
@@ -921,8 +1000,11 @@ impl SysMonInterface {
 
     async fn generate_rgb_issue(&self) -> String {
         let specs = get_hardware_specs();
-        let board_id = std::fs::read_to_string("/sys/class/dmi/id/board_name").unwrap_or_else(|_| "Unknown".to_string()).trim().to_string();
-        
+        let board_id = std::fs::read_to_string("/sys/class/dmi/id/board_name")
+            .unwrap_or_else(|_| "Unknown".to_string())
+            .trim()
+            .to_string();
+
         let mut issue = String::new();
         issue.push_str("### Keyboard RGB Unsupported Issue\n\n");
         issue.push_str("**Product ID (Board ID):**\n");
@@ -931,24 +1013,28 @@ impl SysMonInterface {
         issue.push_str(&format!("{}\n\n", specs.product_name));
         issue.push_str("**Kernel Version:**\n");
         issue.push_str(&format!("{}\n\n", specs.kernel_version));
-        
+
         issue.push_str("**HID Devices (lsusb):**\n```\n");
         if let Ok(out) = std::process::Command::new("lsusb").output() {
             let out_str = String::from_utf8_lossy(&out.stdout);
             for line in out_str.lines() {
-                if line.contains("Hewlett-Packard") || line.contains("HP") || line.contains("03f0") {
+                if line.contains("Hewlett-Packard") || line.contains("HP") || line.contains("03f0")
+                {
                     issue.push_str(line);
                     issue.push('\n');
                 }
             }
         }
         issue.push_str("```\n\n");
-        
+
         issue.push_str("**Description:**\nMy keyboard backlight is not detected or cannot be controlled by OMENSpace. Here are the diagnostics.\n");
-        
+
         issue
     }
 
     #[zbus(signal)]
-    pub async fn telemetry_updated(ctxt: &zbus::SignalContext<'_>, json_stats: &str) -> zbus::Result<()>;
+    pub async fn telemetry_updated(
+        ctxt: &zbus::SignalContext<'_>,
+        json_stats: &str,
+    ) -> zbus::Result<()>;
 }

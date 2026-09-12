@@ -194,7 +194,7 @@ impl PowerService {
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-            let (app_profiles_enabled, app_profiles, current_profile) = {
+            let (app_profiles_enabled, app_profiles, _current_profile) = {
                 let g = config.lock().await;
                 (
                     g.app_profiles_enabled,
@@ -275,57 +275,12 @@ impl PowerService {
 
             if let Some(app) = active_app {
                 if st.active_app.as_deref() != Some(&app) {
-                    info!("App Profiles: Detected game launch: {}", app);
-                    // Save pre-app state
-                    if st.pre_app_state.is_none() {
-                        let current_fan = if let Some(c) = conn.as_ref() {
-                            if let Ok(reply) = c
-                                .call_method(
-                                    Some("org.hp.omen"),
-                                    "/org/hp/omen/Fan",
-                                    Some("org.hp.omen.Fan"),
-                                    "GetFanMode",
-                                    &(),
-                                )
-                                .await
-                            {
-                                let body: String = reply
-                                    .body()
-                                    .deserialize()
-                                    .unwrap_or_else(|_| "auto".to_string());
-                                body
-                            } else {
-                                "auto".to_string()
-                            }
-                        } else {
-                            "auto".to_string()
-                        };
-                        st.pre_app_state = Some((current_profile, current_fan));
-                    }
-
+                    info!("App Profiles: Detected game launch: {}. Manual power and fan modes are authoritative; automatic switching is disabled.", app);
                     st.active_app = Some(app.clone());
-
-                    // Apply app profile (fan only; power writes disabled to protect UnifiedPowerEngine authority)
-                    if let Some(prof) = app_profiles.get(&app) {
-                        let p_fan = prof["fan_mode"].as_str().unwrap_or("auto");
-                        info!("App Profiles: Game detected ('{}'). Syncing fan='{}' (power writes disabled to preserve UnifiedPowerEngine authority)", app, p_fan);
-
-                        if let Some(c) = conn.as_ref() {
-                            let _ = c
-                                .call_method(
-                                    Some("org.hp.omen"),
-                                    "/org/hp/omen/Fan",
-                                    Some("org.hp.omen.Fan"),
-                                    "SetFanMode",
-                                    &p_fan,
-                                )
-                                .await;
-                        }
-                    }
                 }
             } else {
-                if st.active_app.is_some() {
-                    info!("App Profiles: Game closed. Restoring previous fan state (power writes disabled).");
+                if let Some(ref current) = st.active_app {
+                    info!("App Profiles: Game closed: {}. Manual power and fan modes remain authoritative.", current);
                     Self::restore_pre_app_state(&mut st, &config, conn.as_ref()).await;
                 }
             }
@@ -335,25 +290,9 @@ impl PowerService {
     async fn restore_pre_app_state(
         st: &mut tokio::sync::MutexGuard<'_, AppState>,
         _config: &Arc<Mutex<PowerConfig>>,
-        conn: Option<&zbus::Connection>,
+        _conn: Option<&zbus::Connection>,
     ) {
-        if let Some((_p_prof, p_fan)) = st.pre_app_state.take() {
-            info!(
-                "App Profiles: Restoring fan state='{}' (power writes disabled)",
-                p_fan
-            );
-            if let Some(c) = conn {
-                let _ = c
-                    .call_method(
-                        Some("org.hp.omen"),
-                        "/org/hp/omen/Fan",
-                        Some("org.hp.omen.Fan"),
-                        "SetFanMode",
-                        &p_fan,
-                    )
-                    .await;
-            }
-        }
+        st.pre_app_state = None;
         st.active_app = None;
     }
 

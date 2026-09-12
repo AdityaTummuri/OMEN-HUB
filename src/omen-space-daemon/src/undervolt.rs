@@ -1,3 +1,4 @@
+use log::{info, warn};
 /// Undervolt service - matches Python intel_undervolt.py feature-for-feature.
 ///
 /// D-Bus interface: com.yyl.hpmanager.undervolt (backward compat) +
@@ -21,7 +22,6 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use zbus::interface;
-use log::{info, warn};
 
 const CONFIG_PATH: &str = "/etc/omen-space/undervolt.json";
 
@@ -30,18 +30,18 @@ const MSR_VOLTAGE_OFFSETS: u64 = 0x150;
 const MSR_TEMPERATURE: u64 = 0x1a2;
 
 // Voltage plane indices matching Python PLANES dict
-const PLANE_CORE: u32    = 0;
-const PLANE_GPU: u32     = 1;
-const PLANE_CACHE: u32   = 2;
-const PLANE_UNCORE: u32  = 3;
+const PLANE_CORE: u32 = 0;
+const PLANE_GPU: u32 = 1;
+const PLANE_CACHE: u32 = 2;
+const PLANE_UNCORE: u32 = 3;
 const PLANE_ANALOGIO: u32 = 4;
 
 fn plane_index(plane: &str) -> Option<u32> {
     match plane.to_lowercase().as_str() {
-        "core"     => Some(PLANE_CORE),
-        "gpu"      => Some(PLANE_GPU),
-        "cache"    => Some(PLANE_CACHE),
-        "uncore"   => Some(PLANE_UNCORE),
+        "core" => Some(PLANE_CORE),
+        "gpu" => Some(PLANE_GPU),
+        "cache" => Some(PLANE_CACHE),
+        "uncore" => Some(PLANE_UNCORE),
         "analogio" => Some(PLANE_ANALOGIO),
         _ => None,
     }
@@ -91,7 +91,10 @@ fn msr_path(cpu: usize) -> String {
 fn count_cpus() -> usize {
     static CPU_COUNT: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *CPU_COUNT.get_or_init(|| {
-        (0..256).filter(|&i| Path::new(&msr_path(i)).exists()).count().max(1)
+        (0..256)
+            .filter(|&i| Path::new(&msr_path(i)).exists())
+            .count()
+            .max(1)
     })
 }
 
@@ -103,7 +106,9 @@ fn write_msr(val: u64, addr: u64) -> bool {
         if let Ok(mut f) = OpenOptions::new().write(true).open(&path) {
             if f.seek(SeekFrom::Start(addr)).is_ok() {
                 let bytes = val.to_le_bytes();
-                if f.write_all(&bytes).is_ok() { ok = true; }
+                if f.write_all(&bytes).is_ok() {
+                    ok = true;
+                }
             }
         }
     }
@@ -117,12 +122,6 @@ fn read_msr(addr: u64, cpu: usize) -> Option<u64> {
     let mut buf = [0u8; 8];
     f.read_exact(&mut buf).ok()?;
     Some(u64::from_le_bytes(buf))
-}
-
-fn ensure_msr_module() {
-    if !Path::new("/dev/cpu/0/msr").exists() {
-        let _ = std::process::Command::new("modprobe").arg("msr").output();
-    }
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────────
@@ -140,7 +139,11 @@ impl Default for UndervoltConfig {
         for p in ["core", "gpu", "cache", "uncore", "analogio"] {
             offsets.insert(p.to_string(), 0);
         }
-        Self { offsets, tcc_offset: 0, pending_confirmation: false }
+        Self {
+            offsets,
+            tcc_offset: 0,
+            pending_confirmation: false,
+        }
     }
 }
 
@@ -171,23 +174,18 @@ pub struct UndervoltService {
     is_amd: bool,
 }
 
-fn has_ryzenadj() -> bool {
-    std::process::Command::new("which").arg("ryzenadj").output().map(|o| o.status.success()).unwrap_or(false)
-}
-
-
 impl UndervoltService {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let specs = crate::sysmon::get_hardware_specs();
         let is_amd = specs.cpu_spec.to_uppercase().contains("AMD");
-        ensure_msr_module();
-        
+
+        // Strictly passive check: do NOT modprobe msr
         let available = if is_amd {
-            has_ryzenadj()
+            false
         } else {
             Path::new("/dev/cpu/0/msr").exists()
         };
-        
+
         let config = UndervoltConfig::load();
 
         let svc = Self {
@@ -199,12 +197,10 @@ impl UndervoltService {
         if available {
             svc.check_startup_recovery().await;
             svc.apply_all_offsets().await;
+        } else if is_amd {
+            info!("Undervolt: Inactive on AMD Ryzen architecture.");
         } else {
-            if is_amd {
-                warn!("Undervolt: ryzenadj is not installed. AMD tuning unavailable.");
-            } else {
-                warn!("Undervolt: /dev/cpu/0/msr not available (is msr module loaded?)");
-            }
+            info!("Undervolt: /dev/cpu/0/msr not present; undervolt service inactive.");
         }
 
         Ok(svc)
@@ -213,11 +209,15 @@ impl UndervoltService {
     async fn apply_all_offsets(&self) {
         let cfg = self.config.lock().await.clone();
         for (plane, &mv) in &cfg.offsets {
-            if mv == 0 { continue; }
+            if mv == 0 {
+                continue;
+            }
             if self.is_amd {
                 if plane == "core" {
                     let count = mv.clamp(-30, 30);
-                    let _ = std::process::Command::new("ryzenadj").arg(format!("--set-coall={}", count)).output();
+                    let _ = std::process::Command::new("ryzenadj")
+                        .arg(format!("--set-coall={}", count))
+                        .output();
                     info!("Undervolt: AMD Curve Optimizer restored to {}", count);
                 }
             } else {
@@ -237,7 +237,9 @@ impl UndervoltService {
     async fn check_startup_recovery(&self) {
         let mut cfg = self.config.lock().await;
         if cfg.pending_confirmation {
-            warn!("Undervolt: System crashed or rebooted without confirming the undervolt settings!");
+            warn!(
+                "Undervolt: System crashed or rebooted without confirming the undervolt settings!"
+            );
             warn!("Undervolt: TuningStartupRecoveryGuard triggered. Resetting all offsets to 0.");
             for mv in cfg.offsets.values_mut() {
                 *mv = 0;
@@ -250,9 +252,20 @@ impl UndervoltService {
     fn detect_external_controller(&self) -> Option<String> {
         let procs = ["intel-undervolt", "throttled", "thermald"];
         for p in procs {
-            if let Ok(output) = std::process::Command::new("pgrep").arg("-x").arg(p).output() {
+            if let Ok(output) = std::process::Command::new("pgrep")
+                .arg("-x")
+                .arg(p)
+                .output()
+            {
                 if output.status.success() {
-                    return Some(if p == "thermald" { "thermald (may override TCC)" } else { p }.to_string());
+                    return Some(
+                        if p == "thermald" {
+                            "thermald (may override TCC)"
+                        } else {
+                            p
+                        }
+                        .to_string(),
+                    );
                 }
             }
         }
@@ -267,7 +280,11 @@ impl UndervoltService {
     /// SetOffset(plane, offset_mv) — write voltage offset to Intel MSR 0x150.
     /// Mirrors Python intel_undervolt.set_offset().
     async fn set_offset(&self, plane: String, offset_mv: i32) -> String {
-        let mv = if self.is_amd { offset_mv.clamp(-30, 30) } else { offset_mv.clamp(-250, 0) };
+        let mv = if self.is_amd {
+            offset_mv.clamp(-30, 30)
+        } else {
+            offset_mv.clamp(-250, 0)
+        };
         let Some(idx) = plane_index(&plane) else {
             warn!("SetOffset: unknown plane '{}'", plane);
             return "FAIL".to_string();
@@ -280,7 +297,9 @@ impl UndervoltService {
 
         if self.is_amd {
             if plane == "core" {
-                let _ = std::process::Command::new("ryzenadj").arg(format!("--set-coall={}", mv)).output();
+                let _ = std::process::Command::new("ryzenadj")
+                    .arg(format!("--set-coall={}", mv))
+                    .output();
             }
         } else {
             let bits = convert_offset(mv);
@@ -298,7 +317,10 @@ impl UndervoltService {
                     let read_mv = unpack_offset(readback);
                     let want_mv = unconvert_offset(bits);
                     if (read_mv - want_mv).abs() > 2.0 {
-                        warn!("SetOffset: verify failed: wrote {}mV, read {}mV", want_mv, read_mv);
+                        warn!(
+                            "SetOffset: verify failed: wrote {}mV, read {}mV",
+                            want_mv, read_mv
+                        );
                     }
                 }
             }
@@ -324,7 +346,9 @@ impl UndervoltService {
         if self.available {
             if self.is_amd {
                 let max_temp = 100 - val;
-                let _ = std::process::Command::new("ryzenadj").arg(format!("--tctl-temp={}", max_temp)).output();
+                let _ = std::process::Command::new("ryzenadj")
+                    .arg(format!("--tctl-temp={}", max_temp))
+                    .output();
             } else {
                 // MSR 0x1a2: TCC offset is in bits [29:24]
                 // Write (100 - target_temp) << 24 → same formula as Python set_temperature()
@@ -350,7 +374,10 @@ impl UndervoltService {
         let external = self.detect_external_controller();
         let mut warning = None;
         if let Some(ref ext) = external {
-            warning = Some(format!("External controller detected: {}. This may conflict with Omen Space.", ext));
+            warning = Some(format!(
+                "External controller detected: {}. This may conflict with Omen Space.",
+                ext
+            ));
         }
         if self.is_amd && !self.available {
             warning = Some("RyzenAdj is not installed. Please install ryzenadj to use AMD Undervolting & Power Limits.".to_string());
@@ -378,15 +405,22 @@ impl UndervoltService {
             for (plane, &val) in &cfg.offsets {
                 result.insert(plane.to_string(), (val as f64).into());
             }
-            result.insert("tcc_target_c".into(), (100u64 - cfg.tcc_offset as u64).into());
+            result.insert(
+                "tcc_target_c".into(),
+                (100u64 - cfg.tcc_offset as u64).into(),
+            );
         } else {
-            for (plane, idx) in &[("core", PLANE_CORE), ("gpu", PLANE_GPU),
-                                    ("cache", PLANE_CACHE), ("uncore", PLANE_UNCORE)] {
+            for (plane, idx) in &[
+                ("core", PLANE_CORE),
+                ("gpu", PLANE_GPU),
+                ("cache", PLANE_CACHE),
+                ("uncore", PLANE_UNCORE),
+            ] {
                 let read_req = pack_offset_read(*idx);
                 if write_msr(read_req, MSR_VOLTAGE_OFFSETS) {
                     if let Some(resp) = read_msr(MSR_VOLTAGE_OFFSETS, 0) {
                         let mv = unpack_offset(resp);
-                        result.insert(plane.to_string(), (mv as f64).into());
+                        result.insert(plane.to_string(), mv.into());
                     }
                 }
             }
