@@ -136,7 +136,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    std::future::pending::<()>().await;
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            info!("Received SIGINT, shutting down gracefully...");
+        }
+        _ = sigterm.recv() => {
+            info!("Received SIGTERM, shutting down gracefully...");
+        }
+    }
+
+    info!("Restoring fan auto mode on shutdown...");
+    fan_service.restore_auto_mode().await;
+    info!("omen-space-daemon shutdown complete.");
 
     Ok(())
 }

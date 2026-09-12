@@ -30,6 +30,8 @@ pub trait Rgb {
 )]
 pub trait Fan {
     async fn set_fan_mode(&self, mode: &str) -> zbus::Result<String>;
+    async fn set_fan_speed(&self, percentage: u32) -> zbus::Result<String>;
+    async fn get_fan_status(&self) -> zbus::Result<String>;
     async fn set_fan_target(&self, fan_num: u32, rpm: u32) -> zbus::Result<String>;
     async fn get_fan_mode(&self) -> zbus::Result<String>;
     async fn get_fan_info(&self) -> zbus::Result<String>;
