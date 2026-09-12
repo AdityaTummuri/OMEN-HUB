@@ -80,16 +80,12 @@ impl GameAutomationService {
                 let mut active_lock = active.lock().await;
                 match (active_lock.clone(), found_game) {
                     (None, Some(profile)) => {
-                        info!("Detected game start: {}. Profile application is passive pending UnifiedPowerEngine integration.", profile.process_name);
+                        info!("Detected game start: {}. Manual power mode is authoritative; automatic application-based switching is disabled in v1.", profile.process_name);
                         *active_lock = Some(profile.process_name.clone());
-                        // Conflicting write disabled for UnifiedPowerEngine:
-                        // let _ = crate::platform::set_thermal_policy_by_name(&profile.power_profile);
                     }
                     (Some(current), None) => {
-                        info!("Game '{}' closed. Profile restoration is passive pending UnifiedPowerEngine integration.", current);
+                        info!("Game '{}' closed. Manual power mode is authoritative; automatic application-based switching is disabled in v1.", current);
                         *active_lock = None;
-                        // Conflicting write disabled for UnifiedPowerEngine:
-                        // let _ = crate::platform::set_thermal_policy_by_name("Balanced");
                     }
                     _ => {}
                 }

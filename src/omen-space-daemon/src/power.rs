@@ -488,64 +488,19 @@ impl PowerService {
         false
     }
 
-    /// Sync GPU TGP + PPAB — mirrors Python _sync_kernel_gpu_power().
-    async fn sync_gpu_power(profile: &str) {
-        let base = if sysfs_exists("/sys/devices/platform/hp-wmi") {
-            "/sys/devices/platform/hp-wmi"
-        } else {
-            "/sys/devices/platform/hp-omen"
-        };
-        let tgp = format!("{}/gpu_tgp", base);
-        let ppab = format!("{}/gpu_ppab", base);
-        if !sysfs_exists(&tgp) {
-            return;
-        }
-        match profile {
-            "performance" => {
-                let _ = sysfs_write_async(&tgp, "1").await;
-                let _ = sysfs_write_async(&ppab, "1").await;
-            }
-            "balanced" => {
-                let _ = sysfs_write_async(&tgp, "0").await;
-                let _ = sysfs_write_async(&ppab, "1").await;
-            }
-            _ => {
-                let _ = sysfs_write_async(&tgp, "0").await;
-                let _ = sysfs_write_async(&ppab, "0").await;
-            }
-        }
-        info!("GPU TGP/PPAB synced for profile '{}'", profile);
+    /// Deprecated: Power modes in UnifiedPowerEngine do not modify GPU TGP or PPAB.
+    #[allow(dead_code)]
+    async fn sync_gpu_power(_profile: &str) {
+        warn!("sync_gpu_power is deprecated; power modes do not modify GPU TGP");
     }
 
-    /// Sync NVIDIA power limit via nvidia-smi — mirrors Python _sync_nvidia_power().
+    /// Deprecated: Power modes in UnifiedPowerEngine do not modify NVIDIA power limits.
+    #[allow(dead_code)]
     async fn sync_nvidia_power(
-        profile: &str,
-        config: std::sync::Arc<tokio::sync::Mutex<PowerConfig>>,
+        _profile: &str,
+        _config: std::sync::Arc<tokio::sync::Mutex<PowerConfig>>,
     ) {
-        let query = if profile == "performance" {
-            "--query-gpu=power.max_limit"
-        } else {
-            "--query-gpu=power.default_limit"
-        };
-        if let Ok(out) = tokio::process::Command::new("nvidia-smi")
-            .args([query, "--format=csv,noheader,nounits"])
-            .output()
-            .await
-        {
-            let limit_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if let Ok(limit) = limit_str.parse::<f64>() {
-                let _ = tokio::process::Command::new("nvidia-smi")
-                    .args(["-pl", &(limit as u32).to_string()])
-                    .output()
-                    .await;
-                info!("NVIDIA power limit set to {}W ({})", limit as u32, profile);
-                {
-                    let mut cfg = config.lock().await;
-                    cfg.gpu_w = limit as u32;
-                    cfg.save();
-                }
-            }
-        }
+        warn!("sync_nvidia_power is deprecated; power modes do not modify NVIDIA limits");
     }
 
     // ── Intel RAPL power limits ────────────────────────────────────────────────
@@ -698,53 +653,15 @@ impl PowerService {
     }
 
     /// SetPowerProfile — legacy D-Bus method routed strictly through UnifiedPowerEngine.
+    ///
+    /// Deprecated in favor of SetPowerMode. Power modes are strictly managed by UnifiedPowerEngine
+    /// and do not mutate GPU TGP or NVIDIA power limits.
     async fn set_power_profile(&self, profile: String) -> String {
-        let target_mode = match Self::parse_power_mode(&profile) {
-            Some(m) => m,
-            None => {
-                warn!("SetPowerProfile: unrecognized profile '{}'", profile);
-                return "FAIL".to_string();
-            }
-        };
-
-        let res = {
-            let mut eng = self.engine.lock().await;
-            eng.set_mode(target_mode)
-        };
-
-        match res {
-            Ok(()) => {
-                let normalized = match target_mode {
-                    PowerMode::Work => "balanced".to_string(),
-                    PowerMode::GameBattery => "power-saver".to_string(),
-                    PowerMode::Game => "performance".to_string(),
-                };
-                {
-                    let mut cfg = self.config.lock().await;
-                    cfg.power_profile = normalized.clone();
-                    cfg.save();
-                }
-                // Async GPU sync (non-blocking, like Python threads)
-                let p = normalized.clone();
-                let cfg_clone = self.config.clone();
-                tokio::spawn(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                    Self::sync_gpu_power(&p).await;
-                    Self::sync_nvidia_power(&p, cfg_clone).await;
-                });
-                info!(
-                    "SetPowerProfile: successfully routed '{}' -> {} via UnifiedPowerEngine",
-                    profile, target_mode
-                );
-                "OK".to_string()
-            }
-            Err(e) => {
-                warn!(
-                    "SetPowerProfile: UnifiedPowerEngine failed to apply mode for profile '{}': {}",
-                    profile, e
-                );
-                "FAIL".to_string()
-            }
+        let resp = self.set_power_mode(profile).await;
+        if resp.starts_with("OK") {
+            "OK".to_string()
+        } else {
+            "FAIL".to_string()
         }
     }
 
@@ -1171,6 +1088,21 @@ mod tests {
         assert!(!PowerService::sync_omen_profile("performance").await);
         assert!(!PowerService::sync_omen_profile("power-saver").await);
         assert!(!PowerService::sync_omen_profile("balanced").await);
+    }
+
+    #[tokio::test]
+    async fn test_legacy_sync_gpu_and_nvidia_power_are_inert() {
+        let mock = MockSysfs::new();
+        let (service, _engine) = create_test_service(&mock);
+
+        // sync_gpu_power should not panic or cause side-effects
+        PowerService::sync_gpu_power("performance").await;
+        PowerService::sync_gpu_power("balanced").await;
+
+        // sync_nvidia_power should not mutate config gpu_w
+        let initial_gpu_w = service.config.lock().await.gpu_w;
+        PowerService::sync_nvidia_power("performance", service.config.clone()).await;
+        assert_eq!(service.config.lock().await.gpu_w, initial_gpu_w);
     }
 
     #[tokio::test]

@@ -34,13 +34,9 @@ impl PowerAutomationService {
                     if prev != current_ac {
                         *state_lock = Some(current_ac);
                         if current_ac {
-                            info!("AC Power connected (AC=true). Auto thermal switching disabled pending UnifiedPowerEngine integration.");
-                            // Conflicting write disabled for UnifiedPowerEngine:
-                            // let _ = crate::platform::set_thermal_policy_by_name("Performance");
+                            info!("AC Power connected (AC=true). Manual power mode is authoritative; automatic AC/battery switching is disabled in v1.");
                         } else {
-                            info!("Battery Power active (AC=false). Auto thermal switching disabled pending UnifiedPowerEngine integration.");
-                            // Conflicting write disabled for UnifiedPowerEngine:
-                            // let _ = crate::platform::set_thermal_policy_by_name("Quiet");
+                            info!("Battery Power active (AC=false). Manual power mode is authoritative; automatic AC/battery switching is disabled in v1.");
                         }
                     }
                 } else {

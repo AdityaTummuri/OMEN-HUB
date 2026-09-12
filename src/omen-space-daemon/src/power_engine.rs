@@ -277,15 +277,29 @@ impl PlatformProfileManager {
     }
 }
 
-/// UnifiedPowerEngine is the single authoritative power state controller for the daemon.
+/// UnifiedPowerEngine is the SINGLE AUTHORITATIVE SOURCE OF TRUTH (SSOT) for all power
+/// mode state changes in OMEN-HUB.
 ///
-/// It orchestrates:
-/// - ACPI platform profile (PPD)
-/// - AMD P-State Energy Performance Preference (EPP) across all CPU policies
-/// - CPU Core Performance Boost (CPB)
+/// Architecture & System Interaction:
+/// - Modes: Work, Game-Battery, and Game.
+/// - Underlying Subsystems Managed:
+///   1. ACPI platform_profile (`/sys/firmware/acpi/platform_profile` or HP-WMI).
+///   2. CPU Energy Performance Preference (EPP) across all cpufreq policies (`energy_performance_preference`).
+///   3. CPU Core Performance Boost (`/sys/devices/system/cpu/cpufreq/boost`).
 ///
-/// Transitions are transactional: snapshot -> apply PPD -> apply EPP -> apply Boost -> verify -> commit.
-/// If any step fails, all modified subsystems are rolled back to their previous states.
+/// Interaction with power-profiles-daemon (PPD):
+/// - PPD is an underlying system service that reflects and adapts to ACPI platform_profile changes.
+/// - It is NOT a competing authority for OMEN-HUB's semantic power modes.
+/// - When UnifiedPowerEngine updates `platform_profile`, PPD and kernel cpufreq drivers (such as
+///   `amd-pstate-epp`) asynchronously transition cpufreq scaling governors.
+/// - To prevent EBUSY write conflicts during asynchronous governor transitions, the engine
+///   polls governors with a bounded timeout (`wait_for_governor_for_epp`) before writing EPP,
+///   completely eliminating arbitrary sleeps and race conditions.
+///
+/// Transactional Guarantees:
+/// - Execution sequence: Idempotency Check -> Hardware Snapshot -> Platform Profile -> Governor Wait -> EPP -> CPU Boost -> Verification -> Commit.
+/// - If any stage fails, all previously modified hardware states are rolled back transactionally.
+/// - Startup is strictly non-intrusive: the engine does not perform hardware writes during initialization.
 #[derive(Debug)]
 pub struct UnifiedPowerEngine {
     current_mode: Option<PowerMode>,
