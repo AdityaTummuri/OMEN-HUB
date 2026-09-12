@@ -4,13 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use zbus::interface;
-
-use crate::notifier::DesktopNotifier;
-
-static SENSOR_TEMP_PATHS: OnceLock<Vec<PathBuf>> = OnceLock::new();
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CurvePoint(pub f64, pub f64); // [Temp, Pct]
@@ -24,10 +19,6 @@ pub struct FanState {
     pub mode: String,
     pub custom_curve_json: String,
     pub last_targets: HashMap<u32, u32>,
-    pub thermal_protection_active: bool,
-    pub thermal_protection_enabled: bool,
-    pub thermal_protection_entered_at: std::time::Instant,
-    pub pre_protection_mode: Option<String>,
     pub manual_target_pct: Option<u32>,
     pub last_written_duty: Option<u32>,
     pub last_written_duty_time: Option<std::time::Instant>,
@@ -77,10 +68,6 @@ impl FanService {
             mode: config.fan_mode.clone(),
             custom_curve_json: config.custom_curve.clone(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: config.thermal_protection_enabled,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: None,
             last_written_duty: None,
             last_written_duty_time: None,
@@ -111,7 +98,7 @@ impl FanService {
             state: Arc::new(Mutex::new(state)),
         };
 
-        // Spawn the monitor loop for telemetry and emergency thermal safety
+        // Spawn monitor loop to maintain manual mode persistence
         let service_clone = service.clone();
         tokio::spawn(async move {
             service_clone.run_monitor_loop().await;
@@ -297,61 +284,6 @@ impl FanService {
         out
     }
 
-    async fn get_max_temp() -> f64 {
-        tokio::task::spawn_blocking(|| {
-            let paths = SENSOR_TEMP_PATHS.get_or_init(|| {
-                let mut p = Vec::new();
-                if let Ok(entries) = glob("/sys/class/hwmon/hwmon*/temp*_input") {
-                    for entry in entries.filter_map(Result::ok) {
-                        let is_dgpu = if let Some(parent) = entry.parent() {
-                            let name =
-                                std::fs::read_to_string(parent.join("name")).unwrap_or_default();
-                            let name = name.trim().to_lowercase();
-                            if name.contains("nvidia") || name.contains("nouveau") {
-                                true
-                            } else {
-                                let vendor = std::fs::read_to_string(parent.join("device/vendor"))
-                                    .unwrap_or_default();
-                                let class = std::fs::read_to_string(parent.join("device/class"))
-                                    .unwrap_or_default();
-                                vendor.trim().eq_ignore_ascii_case("0x10de")
-                                    && class.trim().starts_with("0x03")
-                            }
-                        } else {
-                            false
-                        };
-
-                        if !is_dgpu {
-                            p.push(entry);
-                        }
-                    }
-                }
-                p
-            });
-
-            let mut max_temp = 45.0;
-            for entry in paths {
-                if let Ok(val_str) = std::fs::read_to_string(entry) {
-                    if let Ok(milli) = val_str.trim().parse::<f64>() {
-                        let temp = milli / 1000.0;
-                        if temp > max_temp && temp < 150.0 {
-                            max_temp = temp;
-                        }
-                    }
-                }
-            }
-
-            let gpu_temp = crate::sysmon::get_safe_gpu_temp();
-            if gpu_temp > max_temp && gpu_temp < 150.0 {
-                max_temp = gpu_temp;
-            }
-
-            max_temp
-        })
-        .await
-        .unwrap_or(45.0)
-    }
-
     /// Set fan mode. Configures the hardware strictly via the kernel hwmon PWM interface.
     ///
     /// Modes:
@@ -503,66 +435,17 @@ impl FanService {
     }
 
     async fn run_monitor_loop(&self) {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
 
         loop {
             interval.tick().await;
 
-            let temp = Self::get_max_temp().await;
             let mut state = self.state.lock().await;
-
-            // Emergency Thermal Protection
-            if state.thermal_protection_enabled && temp > 92.0 && !state.thermal_protection_active {
-                warn!(
-                    "Critical temperature detected ({:.1}°C > 92°C). Activating Emergency Thermal Protection (Max Fan).",
-                    temp
-                );
-                state.thermal_protection_active = true;
-                state.thermal_protection_entered_at = std::time::Instant::now();
-                state.pre_protection_mode = Some(state.mode.clone());
-                let _ = Self::set_mode_internal(&mut state, "max").await;
-
-                tokio::spawn(async move {
-                    DesktopNotifier::send_notification(
-                        "Thermal Protection",
-                        "High temperature detected. Fan speed maximized for hardware safety.",
-                        1,
-                    )
-                    .await;
-                });
-            } else if state.thermal_protection_active {
-                if !state.thermal_protection_enabled || temp <= 72.0 {
-                    let elapsed = state.thermal_protection_entered_at.elapsed().as_secs_f64();
-                    info!(
-                        "Temperature cooled down to {:.1}°C after {:.1}s. Restoring normal fan operation.",
-                        temp, elapsed
-                    );
-                    state.thermal_protection_active = false;
-                    let restore_mode = state
-                        .pre_protection_mode
-                        .take()
-                        .unwrap_or_else(|| "auto".to_string());
-                    let _ = Self::set_mode_internal(&mut state, &restore_mode).await;
-
-                    let msg_mode = restore_mode.clone();
-                    tokio::spawn(async move {
-                        DesktopNotifier::send_notification(
-                            "Thermal Protection",
-                            &format!(
-                                "Temperature normalized ({:.0}°C). Fan mode restored to {}.",
-                                temp, msg_mode
-                            ),
-                            0,
-                        )
-                        .await;
-                    });
-                }
-            }
 
             // In Auto mode: We intentionally DO NOT write to PWM.
             // The laptop BIOS EC firmware regulates fan speed automatically based on hardware thermal tables.
             // In Manual mode: If pwm1_enable drifts away from 1, restore it.
-            if state.mode == "manual" && !state.thermal_protection_active {
+            if state.mode == "manual" {
                 if let Some(pct) = state.manual_target_pct {
                     if let Some(ref hwmon) = state.hwmon_path {
                         let enable_val = sysfs_read(hwmon.join("pwm1_enable"), 2).await;
@@ -638,7 +521,6 @@ impl FanService {
         let display_mode = state.mode.clone();
         let is_available = state.hwmon_path.is_some() && state.fan_count > 0;
         let supports_custom = is_available;
-        let thermal_protection = state.thermal_protection_active;
 
         let info = serde_json::json!({
             "available": is_available,
@@ -647,7 +529,6 @@ impl FanService {
             "supports_custom": supports_custom,
             "custom_curve": state.custom_curve_json,
             "fans": fans_data,
-            "thermal_protection": thermal_protection
         });
 
         serde_json::to_string(&info).unwrap_or_else(|_| "{}".to_string())
@@ -699,8 +580,6 @@ impl FanService {
             "pwm_duty": pwm1_val,
             "percentage": calculated_pct,
             "manual_target_percentage": state.manual_target_pct,
-            "thermal_protection_active": state.thermal_protection_active,
-            "thermal_protection_enabled": state.thermal_protection_enabled,
             "fans": fans,
         });
 
@@ -716,15 +595,6 @@ impl FanService {
     /// Set fan mode ("auto", "manual", "max")
     async fn set_fan_mode(&mut self, mode: &str) -> String {
         let mut state = self.state.lock().await;
-        if state.thermal_protection_active {
-            info!(
-                "Thermal protection is active. Recording target mode '{}' for post-protection restoration.",
-                mode
-            );
-            state.pre_protection_mode = Some(mode.to_string());
-            return "OK".to_string();
-        }
-
         match Self::set_mode_internal(&mut state, mode).await {
             Ok(_) => {
                 let mode_to_save = state.mode.clone();
@@ -743,10 +613,6 @@ impl FanService {
     /// Set fan speed to a percentage (1-100%)
     async fn set_fan_speed(&mut self, percentage: u32) -> String {
         let mut state = self.state.lock().await;
-        if state.thermal_protection_active {
-            return "ERR: Thermal protection is currently active (fan running at max). Manual fan speed change rejected.".to_string();
-        }
-
         match Self::set_fan_speed_internal(&mut state, percentage).await {
             Ok(_) => {
                 let mode_to_save = state.mode.clone();
@@ -788,19 +654,8 @@ impl FanService {
         }
     }
 
-    /// Enable or disable emergency thermal protection
-    async fn set_thermal_protection(&mut self, enabled: bool) -> String {
-        let mut state = self.state.lock().await;
-        state.thermal_protection_enabled = enabled;
-
-        let mut config = crate::config::ConfigManager::new().load().await;
-        config.thermal_protection_enabled = enabled;
-        crate::config::ConfigManager::new().save(&config).await;
-
-        info!(
-            "Thermal protection {}",
-            if enabled { "enabled" } else { "disabled" }
-        );
+    /// Deprecated thermal protection stub for backward D-Bus compatibility
+    async fn set_thermal_protection(&mut self, _enabled: bool) -> String {
         "OK".to_string()
     }
 
@@ -874,10 +729,6 @@ mod tests {
             mode: "manual".to_string(),
             custom_curve_json: "[]".to_string(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: true,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: Some(60),
             last_written_duty: Some(153),
             last_written_duty_time: None,
@@ -906,10 +757,6 @@ mod tests {
             mode: "auto".to_string(),
             custom_curve_json: "[]".to_string(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: true,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: None,
             last_written_duty: None,
             last_written_duty_time: None,
@@ -942,10 +789,6 @@ mod tests {
             mode: "auto".to_string(),
             custom_curve_json: "[]".to_string(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: true,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: None,
             last_written_duty: None,
             last_written_duty_time: None,
@@ -973,10 +816,6 @@ mod tests {
             mode: "auto".to_string(),
             custom_curve_json: "[]".to_string(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: true,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: None,
             last_written_duty: None,
             last_written_duty_time: None,
@@ -999,10 +838,6 @@ mod tests {
             mode: "auto".to_string(),
             custom_curve_json: "[]".to_string(),
             last_targets: HashMap::new(),
-            thermal_protection_active: false,
-            thermal_protection_enabled: true,
-            thermal_protection_entered_at: std::time::Instant::now(),
-            pre_protection_mode: None,
             manual_target_pct: None,
             last_written_duty: None,
             last_written_duty_time: None,
@@ -1015,6 +850,43 @@ mod tests {
         let res_speed = FanService::set_fan_speed_internal(&mut state, 50).await;
         assert!(res_speed.is_err());
         assert!(res_speed.unwrap_err().contains("No HP hwmon device found"));
+    }
+
+    #[tokio::test]
+    async fn test_manual_mode_no_automatic_thermal_override() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        let mut state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "auto".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::new(),
+            manual_target_pct: None,
+            last_written_duty: None,
+            last_written_duty_time: None,
+        };
+
+        // 1. User commands manual 40% fan speed
+        let res = FanService::set_fan_speed_internal(&mut state, 40).await;
+        assert!(res.is_ok());
+        assert_eq!(state.mode, "manual");
+        assert_eq!(state.manual_target_pct, Some(40));
+
+        // 2. Hardware reflects manual mode (pwm1_enable=1) and converted duty
+        let enable_val = fs::read_to_string(mock_dir.join("pwm1_enable")).unwrap();
+        assert_eq!(enable_val.trim(), "1");
+        let duty_val = fs::read_to_string(mock_dir.join("pwm1")).unwrap();
+        assert_eq!(duty_val.trim(), "102"); // 40% of 255 = 102
+
+        // 3. Confirm that the fan state contains NO automatic thermal override flags
+        // and remains strictly in manual mode without daemon curve interference
+        assert_eq!(state.mode, "manual");
+        assert_eq!(state.manual_target_pct, Some(40));
+
+        let _ = fs::remove_dir_all(cleanup);
     }
 
     #[test]

@@ -70,20 +70,6 @@ pub async fn handle(cmd: &FanCommand, conn: &Connection) -> Result<()> {
                     }
                 }
 
-                if let Some(tp) = json
-                    .get("thermal_protection_active")
-                    .and_then(|v| v.as_bool())
-                {
-                    table.add_row(vec![
-                        "Thermal Protection Active".to_string(),
-                        if tp {
-                            "YES (Emergency Overdrive)".to_string()
-                        } else {
-                            "No".to_string()
-                        },
-                    ]);
-                }
-
                 println!("{}", table);
             } else {
                 println!("{}", res);
