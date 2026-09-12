@@ -1,17 +1,17 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
-mod dbus_proxy;
 mod commands;
+mod dbus_proxy;
 mod fetch;
 mod i18n;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = "omen-cli")]
 #[command(about = "Fastfetch-style CLI for Omen Space Daemon", long_about = None)]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug, Clone)]

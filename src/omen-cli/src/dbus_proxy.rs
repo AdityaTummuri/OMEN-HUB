@@ -8,7 +8,12 @@ use zbus::proxy;
 pub trait Rgb {
     async fn set_mode(&self, mode_str: &str, speed_val: i32) -> zbus::Result<String>;
     async fn set_color(&self, zone_val: i32, hex_color: &str) -> zbus::Result<String>;
-    async fn set_global(&self, power_val: bool, brightness_val: i32, direction_str: &str) -> zbus::Result<String>;
+    async fn set_global(
+        &self,
+        power_val: bool,
+        brightness_val: i32,
+        direction_str: &str,
+    ) -> zbus::Result<String>;
     async fn get_state(&self) -> zbus::Result<String>;
     async fn set_per_key_colors(&self, colors_json: &str) -> zbus::Result<String>;
     async fn test_single_key(&self, index: i32) -> zbus::Result<String>;
@@ -44,6 +49,9 @@ pub trait Power {
     async fn set_tcc_offset(&self, val: i32) -> zbus::Result<String>;
     async fn set_app_profiles_enabled(&self, enabled: bool) -> zbus::Result<String>;
     async fn set_app_profiles(&self, profiles_json: &str) -> zbus::Result<String>;
+    async fn get_power_mode(&self) -> zbus::Result<String>;
+    async fn set_power_mode(&self, mode: &str) -> zbus::Result<String>;
+    async fn get_active_definition(&self) -> zbus::Result<String>;
 }
 
 #[proxy(

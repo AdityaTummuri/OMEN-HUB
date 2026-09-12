@@ -1,11 +1,11 @@
+// use crate::notifier::DesktopNotifier;
 use log::info;
 use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use crate::notifier::DesktopNotifier;
-use std::sync::OnceLock;
-use std::path::PathBuf;
 
 static AC_ONLINE_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
 
@@ -34,21 +34,13 @@ impl PowerAutomationService {
                     if prev != current_ac {
                         *state_lock = Some(current_ac);
                         if current_ac {
-                            info!("AC Power connected. Applying AC Performance Profile...");
-                            DesktopNotifier::send_notification(
-                                "OMENSpace Power Automation",
-                                "AC Power connected. Switched to Performance mode.",
-                                0,
-                            ).await;
-                            let _ = crate::platform::set_thermal_policy_by_name("Performance");
+                            info!("AC Power connected (AC=true). Auto thermal switching disabled pending UnifiedPowerEngine integration.");
+                            // Conflicting write disabled for UnifiedPowerEngine:
+                            // let _ = crate::platform::set_thermal_policy_by_name("Performance");
                         } else {
-                            info!("Battery Power connected. Applying Battery Saver Profile...");
-                            DesktopNotifier::send_notification(
-                                "OMENSpace Power Automation",
-                                "Running on Battery. Switched to Quiet/Saver mode.",
-                                1,
-                            ).await;
-                            let _ = crate::platform::set_thermal_policy_by_name("Quiet");
+                            info!("Battery Power active (AC=false). Auto thermal switching disabled pending UnifiedPowerEngine integration.");
+                            // Conflicting write disabled for UnifiedPowerEngine:
+                            // let _ = crate::platform::set_thermal_policy_by_name("Quiet");
                         }
                     }
                 } else {

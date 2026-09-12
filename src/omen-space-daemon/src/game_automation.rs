@@ -1,11 +1,11 @@
-use log::{info, error};
+// use crate::notifier::DesktopNotifier;
+use log::{error, info};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use crate::notifier::DesktopNotifier;
 
 use serde::{Deserialize, Serialize};
 
@@ -80,25 +80,16 @@ impl GameAutomationService {
                 let mut active_lock = active.lock().await;
                 match (active_lock.clone(), found_game) {
                     (None, Some(profile)) => {
-                        info!("Detected game start: {}. Switching to '{}' profile...", profile.process_name, profile.power_profile);
+                        info!("Detected game start: {}. Profile application is passive pending UnifiedPowerEngine integration.", profile.process_name);
                         *active_lock = Some(profile.process_name.clone());
-                        DesktopNotifier::send_notification(
-                            "OMENSpace App Profile Activated",
-                            &format!("App '{}' launched. Switched performance profile to '{}'.", profile.process_name, profile.power_profile),
-                            1,
-                        ).await;
-                        // Apply performance profile via platform
-                        let _ = crate::platform::set_thermal_policy_by_name(&profile.power_profile);
+                        // Conflicting write disabled for UnifiedPowerEngine:
+                        // let _ = crate::platform::set_thermal_policy_by_name(&profile.power_profile);
                     }
                     (Some(current), None) => {
-                        info!("Game '{}' closed. Restoring default profile...", current);
+                        info!("Game '{}' closed. Profile restoration is passive pending UnifiedPowerEngine integration.", current);
                         *active_lock = None;
-                        DesktopNotifier::send_notification(
-                            "OMENSpace Game Profile Deactivated",
-                            &format!("Game '{}' closed. Restored default performance profile.", current),
-                            0,
-                        ).await;
-                        let _ = crate::platform::set_thermal_policy_by_name("Balanced");
+                        // Conflicting write disabled for UnifiedPowerEngine:
+                        // let _ = crate::platform::set_thermal_policy_by_name("Balanced");
                     }
                     _ => {}
                 }
@@ -115,14 +106,22 @@ impl GameAutomationService {
         serde_json::to_string(&profiles).unwrap_or_default()
     }
 
-    pub async fn add_profile(&self, process_name: String, power_profile: String, fan_mode: String) -> String {
+    pub async fn add_profile(
+        &self,
+        process_name: String,
+        power_profile: String,
+        fan_mode: String,
+    ) -> String {
         let mut map = self.game_profiles.lock().await;
         let proc_lower = process_name.to_lowercase();
-        map.insert(proc_lower.clone(), AppProfile {
-            process_name: proc_lower,
-            power_profile,
-            fan_mode,
-        });
+        map.insert(
+            proc_lower.clone(),
+            AppProfile {
+                process_name: proc_lower,
+                power_profile,
+                fan_mode,
+            },
+        );
         Self::save_profiles(&map);
         "OK".to_string()
     }
