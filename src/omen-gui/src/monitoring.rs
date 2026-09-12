@@ -350,12 +350,23 @@ fn build_modes_card() -> ModesUI {
     let pl = power_lbl.clone();
     let fl = fan_lbl.clone();
     glib::spawn_future_local(async move {
-        let power = crate::daemon_client::get_power_profile_async().await
-            .unwrap_or_else(|_| "balanced".to_string());
-        pl.set_label(match power.as_str() {
-            "power-saver" => i18n::t("mode_eco"),
-            "performance" => i18n::t("mode_performance"),
-            _ => i18n::t("mode_balanced"),
+        let mode = match crate::daemon_client::get_power_mode_async().await {
+            Ok(m) if m != "unknown" => m,
+            _ => {
+                let power = crate::daemon_client::get_power_profile_async().await
+                    .unwrap_or_else(|_| "balanced".to_string());
+                match power.as_str() {
+                    "power-saver" => "game-battery".to_string(),
+                    "performance" => "game".to_string(),
+                    _ => "work".to_string(),
+                }
+            }
+        };
+        pl.set_label(match mode.as_str() {
+            "work" => i18n::t("mode_work"),
+            "game-battery" => i18n::t("mode_game_battery"),
+            "game" => i18n::t("mode_game"),
+            _ => i18n::t("mode_work"),
         });
         let fan = crate::daemon_client::get_fan_mode_async().await
             .unwrap_or_else(|_| "auto".to_string());

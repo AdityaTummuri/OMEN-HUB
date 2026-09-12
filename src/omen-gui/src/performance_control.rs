@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use crate::i18n;
 use crate::daemon_client;
 
@@ -57,29 +57,262 @@ pub fn build_page() -> gtk::Box {
         .margin_bottom(12)
         .build();
 
-    let (eco_btn, eco_wrap)   = build_chip_card(&crate::asset_resolver::get_asset_path("eco.svg"),         i18n::t("mode_eco"),         i18n::t("mode_eco_sub"));
-    let (bal_btn, bal_wrap)   = build_chip_card(&crate::asset_resolver::get_asset_path("balanced.svg"),    i18n::t("mode_balanced"),    i18n::t("mode_balanced_sub"));
-    let (perf_btn, perf_wrap) = build_chip_card(&crate::asset_resolver::get_asset_path("performance.svg"), i18n::t("mode_performance"), i18n::t("mode_performance_sub"));
+    let (work_btn, work_wrap) = build_chip_card(
+        &crate::asset_resolver::get_asset_path("balanced.svg"),
+        i18n::t("mode_work"),
+        i18n::t("mode_work_sub"),
+    );
+    let (gb_btn, gb_wrap) = build_chip_card(
+        &crate::asset_resolver::get_asset_path("eco.svg"),
+        i18n::t("mode_game_battery"),
+        i18n::t("mode_game_battery_sub"),
+    );
+    let (game_btn, game_wrap) = build_chip_card(
+        &crate::asset_resolver::get_asset_path("performance.svg"),
+        i18n::t("mode_game"),
+        i18n::t("mode_game_sub"),
+    );
 
-    let current_power = crate::daemon_client::get_power_profile_sync();
-    if current_power == "performance" {
-        perf_btn.set_active(true);
-    } else if current_power == "power-saver" {
-        eco_btn.set_active(true);
-    } else {
-        bal_btn.set_active(true);
-    }
-    bal_btn.set_group(Some(&eco_btn));
-    perf_btn.set_group(Some(&eco_btn));
+    gb_btn.set_group(Some(&work_btn));
+    game_btn.set_group(Some(&work_btn));
 
-    eco_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_power_profile_sync("power-saver".to_string()); } });
-    bal_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_power_profile_sync("balanced".to_string()); } });
-    perf_btn.connect_toggled(|btn| { if btn.is_active() { daemon_client::set_power_profile_sync("performance".to_string()); } });
-
-    perf_box.append(&eco_wrap);
-    perf_box.append(&bal_wrap);
-    perf_box.append(&perf_wrap);
+    perf_box.append(&work_wrap);
+    perf_box.append(&gb_wrap);
+    perf_box.append(&game_wrap);
     page.append(&perf_box);
+
+    // ── AUTHORITATIVE HARDWARE STATE ──────────────────────────────────────────
+    let status_card = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(10)
+        .margin_bottom(16)
+        .css_classes(["os-card"])
+        .build();
+
+    let status_header = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(8)
+        .build();
+    status_header.append(&gtk::Label::builder()
+        .label(i18n::t("power_hardware_status"))
+        .css_classes(["os-card-header"])
+        .halign(gtk::Align::Start)
+        .hexpand(true)
+        .build());
+
+    let active_mode_badge = gtk::Label::builder()
+        .label("...")
+        .css_classes(["badge-ok"])
+        .halign(gtk::Align::End)
+        .build();
+    status_header.append(&active_mode_badge);
+    status_card.append(&status_header);
+
+    let stats_row = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .homogeneous(true)
+        .build();
+
+    let make_stat_col = |cat_title: &'static str| -> (gtk::Box, gtk::Label) {
+        let col = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(4)
+            .halign(gtk::Align::Start)
+            .build();
+        col.append(&gtk::Label::builder()
+            .label(i18n::t(cat_title))
+            .css_classes(["os-monitor-label"])
+            .halign(gtk::Align::Start)
+            .build());
+        let val_lbl = gtk::Label::builder()
+            .label("...")
+            .css_classes(["os-monitor-val-sm"])
+            .halign(gtk::Align::Start)
+            .build();
+        col.append(&val_lbl);
+        (col, val_lbl)
+    };
+
+    let (profile_col, profile_lbl) = make_stat_col("power_stat_profile");
+    let (epp_col, epp_lbl) = make_stat_col("power_stat_epp");
+    let (boost_col, boost_lbl) = make_stat_col("power_stat_boost");
+
+    stats_row.append(&profile_col);
+    stats_row.append(&epp_col);
+    stats_row.append(&boost_col);
+    status_card.append(&stats_row);
+
+    let hint_lbl = gtk::Label::builder()
+        .label(i18n::t("power_boost_hint"))
+        .css_classes(["os-section-desc"])
+        .halign(gtk::Align::Start)
+        .wrap(true)
+        .build();
+    status_card.append(&hint_lbl);
+
+    let err_revealer = gtk::Revealer::builder()
+        .transition_type(gtk::RevealerTransitionType::SlideDown)
+        .reveal_child(false)
+        .build();
+    let err_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(8)
+        .margin_top(4)
+        .build();
+    let err_lbl = gtk::Label::builder()
+        .css_classes(["badge-err"])
+        .halign(gtk::Align::Start)
+        .wrap(true)
+        .build();
+    err_box.append(&err_lbl);
+    err_revealer.set_child(Some(&err_box));
+    status_card.append(&err_revealer);
+
+    page.append(&status_card);
+
+    let is_syncing = Rc::new(Cell::new(false));
+
+    let sync_ui = {
+        let work_btn = work_btn.clone();
+        let gb_btn = gb_btn.clone();
+        let game_btn = game_btn.clone();
+        let mode_badge = active_mode_badge.clone();
+        let prof_l = profile_lbl.clone();
+        let epp_l = epp_lbl.clone();
+        let boost_l = boost_lbl.clone();
+        let is_syncing = is_syncing.clone();
+
+        Rc::new(move || {
+            let work_b = work_btn.clone();
+            let gb_b = gb_btn.clone();
+            let game_b = game_btn.clone();
+            let m_badge = mode_badge.clone();
+            let p_lbl = prof_l.clone();
+            let e_lbl = epp_l.clone();
+            let b_lbl = boost_l.clone();
+            let syncing = is_syncing.clone();
+
+            glib::spawn_future_local(async move {
+                let active_mode = daemon_client::get_power_mode_async()
+                    .await
+                    .unwrap_or_else(|_| "unknown".to_string());
+                let def_json = daemon_client::get_active_definition_async()
+                    .await
+                    .unwrap_or_else(|_| "{}".to_string());
+                let def = daemon_client::parse_active_definition(&active_mode, &def_json);
+
+                syncing.set(true);
+                match def.mode.as_str() {
+                    "work" => work_b.set_active(true),
+                    "game-battery" => gb_b.set_active(true),
+                    "game" => game_b.set_active(true),
+                    _ => {
+                        if active_mode == "work" {
+                            work_b.set_active(true);
+                        } else if active_mode == "game-battery" {
+                            gb_b.set_active(true);
+                        } else if active_mode == "game" {
+                            game_b.set_active(true);
+                        }
+                    }
+                }
+                syncing.set(false);
+
+                let (display_name, badge_class) = match def.mode.as_str() {
+                    "work" => ("Work", "badge-ok"),
+                    "game-battery" => ("Game-Battery", "badge-warn"),
+                    "game" => ("Game", "badge-warn"),
+                    other => (other, "badge-err"),
+                };
+                m_badge.set_label(display_name);
+                m_badge.set_css_classes(&[badge_class]);
+
+                p_lbl.set_label(&def.platform_profile);
+                e_lbl.set_label(&def.epp);
+                b_lbl.set_label(if def.boost {
+                    i18n::t("power_boost_on")
+                } else {
+                    i18n::t("power_boost_off")
+                });
+            });
+        })
+    };
+
+    let handle_mode_change = |target_mode: &'static str,
+                              err_rev: gtk::Revealer,
+                              err_l: gtk::Label,
+                              sync_fn: Rc<dyn Fn()>| {
+        let rev = err_rev.clone();
+        let lbl = err_l.clone();
+        let s_fn = sync_fn.clone();
+
+        glib::spawn_future_local(async move {
+            match daemon_client::set_power_mode_async(target_mode).await {
+                Ok(resp) if resp == "OK" => {
+                    rev.set_reveal_child(false);
+                    s_fn();
+                }
+                Ok(resp) => {
+                    lbl.set_label(&format!("Power daemon error: {}", resp));
+                    rev.set_reveal_child(true);
+                    s_fn();
+                }
+                Err(e) => {
+                    lbl.set_label(&format!("D-Bus error: {}", e));
+                    rev.set_reveal_child(true);
+                    s_fn();
+                }
+            }
+        });
+    };
+
+    let sync_w = sync_ui.clone();
+    let err_rev_w = err_revealer.clone();
+    let err_lbl_w = err_lbl.clone();
+    let is_sync_w = is_syncing.clone();
+    work_btn.connect_toggled(move |btn| {
+        if is_sync_w.get() {
+            return;
+        }
+        if btn.is_active() {
+            handle_mode_change("work", err_rev_w.clone(), err_lbl_w.clone(), sync_w.clone());
+        }
+    });
+
+    let sync_gb = sync_ui.clone();
+    let err_rev_gb = err_revealer.clone();
+    let err_lbl_gb = err_lbl.clone();
+    let is_sync_gb = is_syncing.clone();
+    gb_btn.connect_toggled(move |btn| {
+        if is_sync_gb.get() {
+            return;
+        }
+        if btn.is_active() {
+            handle_mode_change(
+                "game-battery",
+                err_rev_gb.clone(),
+                err_lbl_gb.clone(),
+                sync_gb.clone(),
+            );
+        }
+    });
+
+    let sync_g = sync_ui.clone();
+    let err_rev_g = err_revealer.clone();
+    let err_lbl_g = err_lbl.clone();
+    let is_sync_g = is_syncing.clone();
+    game_btn.connect_toggled(move |btn| {
+        if is_sync_g.get() {
+            return;
+        }
+        if btn.is_active() {
+            handle_mode_change("game", err_rev_g.clone(), err_lbl_g.clone(), sync_g.clone());
+        }
+    });
+
+    // Synchronize authoritative state on initial page load
+    sync_ui();
 
     // ── FAN MODES ─────────────────────────────────────────────────────────────
     let fan_header = gtk::Box::builder()

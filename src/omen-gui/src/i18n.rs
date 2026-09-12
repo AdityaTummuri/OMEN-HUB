@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
@@ -117,11 +117,17 @@ pub fn init() {
 }
 
 pub fn get_selected_language() -> Language {
-    I18N_STATE.read().map(|s| s.selected_language).unwrap_or(Language::Auto)
+    I18N_STATE
+        .read()
+        .map(|s| s.selected_language)
+        .unwrap_or(Language::Auto)
 }
 
 pub fn get_active_language() -> Language {
-    I18N_STATE.read().map(|s| s.active_language).unwrap_or(Language::En)
+    I18N_STATE
+        .read()
+        .map(|s| s.active_language)
+        .unwrap_or(Language::En)
 }
 
 pub fn set_language(lang: Language) {
@@ -193,6 +199,20 @@ fn translate_tr(key: &'static str) -> &'static str {
         "mode_balanced_sub" => "Önerilen denge",
         "mode_performance" => "Performance",
         "mode_performance_sub" => "Maksimum güç",
+        "mode_work" => "Work",
+        "mode_work_sub" => "Dengeli · CPU Boost açık",
+        "mode_game_battery" => "Game-Battery",
+        "mode_game_battery_sub" => "Pil tasarrufu · CPU Boost kapalı",
+        "mode_game" => "Game",
+        "mode_game_sub" => "Maksimum güç · CPU Boost açık",
+        "power_hardware_status" => "DONANIM GÜÇ DURUMU",
+        "power_stat_mode" => "GÜÇ MODU",
+        "power_stat_profile" => "PLATFORM PROFİLİ",
+        "power_stat_epp" => "CPU EPP",
+        "power_stat_boost" => "CPU BOOST",
+        "power_boost_on" => "İzin Verildi (AÇIK)",
+        "power_boost_off" => "Devre Dışı (KAPALI)",
+        "power_boost_hint" => "CPU Boost=AÇIK, dinamik frekans artışına izin verir; zorunlu kılınmaz.",
         "fan_auto" => "Auto",
         "fan_auto_sub" => "Akıllı soğutma",
         "fan_max" => "Max",
@@ -484,7 +504,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "omen_per_key_desc" => "Per-Key RGB Klavye",
         "effect_wave_custom" => "Dalga (Özel Renkler)",
         "effect_wave_rainbow" => "Dalga (Gökkuşağı)",
-        
+
         "effect_starlight" => "Starlight / Yıldız Işığı",
         "effect_marquee" => "Marquee / Spiral",
         "effect_reactive" => "Reactive (Tepkisel)",
@@ -530,6 +550,20 @@ fn translate_en(key: &'static str) -> &'static str {
         "mode_balanced_sub" => "Recommended balance",
         "mode_performance" => "Performance",
         "mode_performance_sub" => "Maximum power",
+        "mode_work" => "Work",
+        "mode_work_sub" => "Everyday · CPU Boost permitted",
+        "mode_game_battery" => "Game-Battery",
+        "mode_game_battery_sub" => "Battery gaming · CPU Boost disabled",
+        "mode_game" => "Game",
+        "mode_game_sub" => "Performance · CPU Boost permitted",
+        "power_hardware_status" => "AUTHORITATIVE HARDWARE STATE",
+        "power_stat_mode" => "POWER MODE",
+        "power_stat_profile" => "PLATFORM PROFILE",
+        "power_stat_epp" => "CPU EPP",
+        "power_stat_boost" => "CPU BOOST",
+        "power_boost_on" => "Permitted (ON)",
+        "power_boost_off" => "Disabled (OFF)",
+        "power_boost_hint" => "CPU Boost=ON permits dynamic clock scaling up to maximum turbo; boost is not forced.",
         "fan_auto" => "Auto",
         "fan_auto_sub" => "Smart cooling",
         "fan_max" => "Max",
