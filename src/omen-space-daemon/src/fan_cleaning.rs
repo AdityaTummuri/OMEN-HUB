@@ -1,6 +1,6 @@
-use log::{info, error};
-use tokio::time::{sleep, Duration};
 use crate::notifier::DesktopNotifier;
+use log::{error, info};
+use tokio::time::{sleep, Duration};
 use zbus::Connection;
 
 #[zbus::proxy(
@@ -18,10 +18,11 @@ impl FanCleaningService {
     pub async fn run_cleaning_routine() -> String {
         info!("Starting Fan Dust Cleaning routine...");
         DesktopNotifier::send_notification(
-            "OMEN Space Fan Maintenance",
+            "OMEN-HUB Fan Maintenance",
             "Fan Dust Cleaning routine started. Operating fans at high airflow bursts...",
             1,
-        ).await;
+        )
+        .await;
 
         let conn = match Connection::system().await {
             Ok(c) => c,
@@ -47,10 +48,11 @@ impl FanCleaningService {
         let _ = proxy.set_fan_mode("auto").await;
 
         DesktopNotifier::send_notification(
-            "OMEN Space Fan Maintenance",
+            "OMEN-HUB Fan Maintenance",
             "Fan Dust Cleaning completed successfully. Returned to automatic fan mode.",
             0,
-        ).await;
+        )
+        .await;
 
         "Fan Dust Cleaning completed successfully".to_string()
     }

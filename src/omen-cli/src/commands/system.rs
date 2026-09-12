@@ -1,7 +1,7 @@
+use crate::dbus_proxy::PlatformProxy;
+use anyhow::Result;
 use clap::Subcommand;
 use zbus::Connection;
-use anyhow::Result;
-use crate::dbus_proxy::PlatformProxy;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum SystemCommand {
@@ -15,9 +15,7 @@ pub enum SystemCommand {
         f1: bool,
     },
     /// Set battery charge limit (50 to 100)
-    BatteryCare {
-        limit: u32,
-    },
+    BatteryCare { limit: u32 },
     /// Run WMI hardware diagnostics suite
     Diagnostics,
     /// Generate a hardware triage bundle for bug reports
@@ -28,9 +26,9 @@ pub enum SystemCommand {
     CheckConflicts,
     /// Check for BIOS updates
     CheckBios,
-    /// Check for Omen Space updates
+    /// Check for OMEN-HUB updates
     CheckUpdate,
-    /// Apply Omen Space update
+    /// Apply OMEN-HUB update
     ApplyUpdate,
     /// Clear page cache memory
     CleanMemory,
@@ -77,12 +75,12 @@ pub async fn handle(cmd: &SystemCommand, conn: &Connection) -> Result<()> {
             println!("BIOS Update Info:\n{}", res);
         }
         SystemCommand::CheckUpdate => {
-            println!("Checking GitHub for Omen Space updates...");
+            println!("Checking GitHub for OMEN-HUB updates...");
             let res = proxy.check_app_update().await?;
             println!("Update Info:\n{}", res);
         }
         SystemCommand::ApplyUpdate => {
-            println!("Applying Omen Space update...");
+            println!("Applying OMEN-HUB update...");
             let res = proxy.apply_app_update().await?;
             println!("Response:\n{}", res);
         }

@@ -1,10 +1,10 @@
-# OMENSpace Architecture Map & Documentation
+# OMEN-HUB Architecture Map & Documentation
 
-This document serves as the technical map for the **OMENSpace** project. It outlines how the software interacts with the hardware, the inter-process communication mechanisms, and the layout of the source code.
+This document serves as the technical map for the **OMEN-HUB** project. It outlines how the software interacts with the hardware, the inter-process communication mechanisms, and the layout of the source code.
 
 ## 1. High-Level Architecture
 
-OMENSpace follows a **Client-Server Architecture** operating locally on the user's Linux machine via **D-Bus**.
+OMEN-HUB follows a **Client-Server Architecture** operating locally on the user's Linux machine via **D-Bus**.
 
 ```mermaid
 graph TD

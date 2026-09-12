@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# OMENSpace Web Installer
-# Automated installer for OMENSpace (Daemon, GUI, CLI, Tray, Kernel Driver)
-# Repository: https://github.com/yunusemreyl/omen-space
+# OMEN-HUB Web Installer
+# Automated installer for OMEN-HUB (Daemon, GUI, CLI, Tray, Kernel Driver)
+# Repository: https://github.com/AdityaTummuri/OMEN-HUB
 # ==============================================================================
 
 set -euo pipefail
@@ -20,7 +20,7 @@ info() { echo -e "${CYAN}[i]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
-REPO="yunusemreyl/omen-space"
+REPO="AdityaTummuri/OMEN-HUB"
 TMP_DIR="/tmp/omen-space-install"
 
 if [ "$EUID" -ne 0 ]; then
@@ -29,15 +29,15 @@ fi
 
 echo -e "${CYAN}"
 cat << "BANNER"
-  ____  __  ________  _   __   _____ ____  ___   ____________
- / __ \/  |/  / ____// | / /  / ___// __ \/   | / ____/ ____/
-/ / / / /|_/ / __/  /  |/ /   \__ \/ /_/ / /| |/ /   / __/   
-/ /_/ / /  / / /___ / /|  /   ___/ / ____/ ___ / /___/ /___   
-\____/_/  /_/_____//_/ |_/   /____/_/   /_/  |_\____/_____/   
+  ____  __  ________  _   __     __  ____  ______ 
+ / __ \/  |/  / ____// | / /    / / / / / / / __ )
+/ / / / /|_/ / __/  /  |/ /____/ /_/ / / / / __  |
+/ /_/ / /  / / /___ / /|  /_____/ __  / /_/ / /_/ / 
+\____/_/  /_/_____//_/ |_/     /_/ /_/\____/_____/  
 BANNER
 echo -e "${NC}"
 echo -e "${BOLD}====================================================${NC}"
-echo -e "${BOLD}       🚀 OMENSpace Automated Installer             ${NC}"
+echo -e "${BOLD}       🚀 OMEN-HUB Automated Installer             ${NC}"
 echo -e "${BOLD}====================================================${NC}"
 
 # ------------------------------------------------------------------------------
@@ -126,7 +126,7 @@ rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
 if command -v git &> /dev/null; then
-    info "Fetching OMENSpace source ($TARGET_REF)..."
+    info "Fetching OMEN-HUB source ($TARGET_REF)..."
     git clone --depth 1 -b "$TARGET_REF" "https://github.com/$REPO.git" "$TMP_DIR"
     cd "$TMP_DIR"
 else
@@ -168,7 +168,7 @@ rm -rf "$TMP_DIR"
 
 echo -e ""
 echo -e "${GREEN}====================================================${NC}"
-echo -e "${GREEN}  🎉 OMENSpace ($TARGET_REF) installed successfully!${NC}"
+echo -e "${GREEN}  🎉 OMEN-HUB ($TARGET_REF) installed successfully!${NC}"
 echo -e "${GREEN}  Launch GUI via app menu or terminal:              ${NC}"
 echo -e "${BOLD}       omen-gui                                     ${NC}"
 echo -e "${GREEN}  CLI control:                                      ${NC}"

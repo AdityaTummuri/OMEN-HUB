@@ -1,6 +1,6 @@
-# OMENSpace GUI (`omen-gui`)
+# OMEN-HUB GUI (`omen-gui`)
 
-The graphical user interface for OMENSpace is designed to be modern, responsive, and visually cohesive with Linux desktop environments (like GNOME). It is entirely built in **Rust** using **GTK4** and **LibAdwaita**.
+The graphical user interface for OMEN-HUB is designed to be modern, responsive, and visually cohesive with Linux desktop environments (like GNOME). It is entirely built in **Rust** using **GTK4** and **LibAdwaita**.
 
 ## Responsibilities
 

@@ -375,7 +375,7 @@ impl UndervoltService {
         let mut warning = None;
         if let Some(ref ext) = external {
             warning = Some(format!(
-                "External controller detected: {}. This may conflict with Omen Space.",
+                "External controller detected: {}. This may conflict with OMEN-HUB.",
                 ext
             ));
         }

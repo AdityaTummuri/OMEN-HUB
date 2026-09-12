@@ -1,6 +1,6 @@
+use glob::glob;
 use log::{info, warn};
 use std::process::Command;
-use glob::glob;
 use zbus::Connection;
 
 pub struct DesktopNotifier;
@@ -12,22 +12,24 @@ impl DesktopNotifier {
             let mut hints = std::collections::HashMap::new();
             hints.insert("urgency", zbus::zvariant::Value::U8(urgency));
 
-            let _ = connection.call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "Notify",
-                &(
-                    "OMENSpace",
-                    0u32,
-                    "preferences-desktop-display",
-                    title,
-                    body,
-                    Vec::<&str>::new(),
-                    hints,
-                    5000i32, // expire_timeout in ms
-                ),
-            ).await;
+            let _ = connection
+                .call_method(
+                    Some("org.freedesktop.Notifications"),
+                    "/org/freedesktop/Notifications",
+                    Some("org.freedesktop.Notifications"),
+                    "Notify",
+                    &(
+                        "OMEN-HUB",
+                        0u32,
+                        "preferences-desktop-display",
+                        title,
+                        body,
+                        Vec::<&str>::new(),
+                        hints,
+                        5000i32, // expire_timeout in ms
+                    ),
+                )
+                .await;
         } else {
             warn!("Could not connect to D-Bus session bus to send notification");
         }
@@ -59,13 +61,18 @@ impl DesktopNotifier {
                         }
 
                         // Sanitize username to prevent privilege escalation or command argument injection
-                        let is_valid_username = !user.is_empty() 
-                            && user != "root" 
-                            && user.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+                        let is_valid_username = !user.is_empty()
+                            && user != "root"
+                            && user
+                                .chars()
+                                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
 
                         if is_valid_username {
                             let mut cmd = Command::new("sudo");
-                            cmd.arg("-u").arg(&user).arg("env").arg(format!("DISPLAY={}", display));
+                            cmd.arg("-u")
+                                .arg(&user)
+                                .arg("env")
+                                .arg(format!("DISPLAY={}", display));
                             if !dbus_addr.is_empty() {
                                 cmd.arg(format!("DBUS_SESSION_BUS_ADDRESS={}", dbus_addr));
                             }
@@ -84,11 +91,11 @@ impl DesktopNotifier {
 
     /// Open browser directly to GitHub Issue creation page with pre-filled title and body
     pub fn open_github_issue(title: &str, body: &str) {
-        let repo_url = "https://github.com/yunusemreyl/omen-space/issues/new";
+        let repo_url = "https://github.com/AdityaTummuri/OMEN-HUB/issues/new";
         let encoded_title = url_encode(title);
         let encoded_body = url_encode(body);
         let full_url = format!("{}?title={}&body={}", repo_url, encoded_title, encoded_body);
-        
+
         info!("Launching GitHub Issue creation URL: {}", full_url);
         Self::open_in_user_session(&full_url);
     }

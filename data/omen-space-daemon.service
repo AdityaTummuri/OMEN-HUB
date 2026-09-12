@@ -1,5 +1,5 @@
 [Unit]
-Description=Omen Space — Unified Daemon (omen-space-daemon)
+Description=OMEN-HUB — Unified Daemon (omen-space-daemon)
 After=dbus.service systemd-logind.service
 Requires=dbus.service systemd-logind.service
 

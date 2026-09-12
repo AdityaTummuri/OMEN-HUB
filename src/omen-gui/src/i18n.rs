@@ -167,7 +167,7 @@ pub fn t(key: &'static str) -> &'static str {
 fn translate_tr(key: &'static str) -> &'static str {
     match key {
         // App / Navigation
-        "app_title" => "OmenSpace",
+        "app_title" => "OMEN-HUB",
         "menu" => "Menü",
         "nav_performance" => "Performans",
         "nav_undervolt" => "Gelişmiş Güç",
@@ -374,7 +374,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "search_apps" => "Uygulamalarda ara...",
 
         // Updater Page
-        "updater_desc" => "OmenSpace ve cihaz firmware güncellemelerini yönet",
+        "updater_desc" => "OMEN-HUB ve cihaz firmware güncellemelerini yönet",
         "current_version" => "Mevcut Versiyon",
         "last_checked" => "Son kontrol: Bugün",
         "update_status" => "Güncelleme Durumu",
@@ -412,7 +412,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "ok_btn" => "Tamam",
 
         // Settings Page
-        "settings_desc" => "OmenSpace daemon & uygulama yapılandırması",
+        "settings_desc" => "OMEN-HUB daemon & uygulama yapılandırması",
         "hw_config_group" => "Donanım Yapılandırması",
         "appearance_and_lang" => "Görünüm &amp; Dil",
         "appearance_mode" => "Tema Görünümü",
@@ -421,7 +421,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "language_row_sub" => "Arayüz dilini anında değiştirin",
         "daemon_group" => "Daemon",
         "daemon_status" => "Daemon Durumu",
-        "daemon_status_sub" => "OmenSpace arka plan servisine bağlantı",
+        "daemon_status_sub" => "OMEN-HUB arka plan servisine bağlantı",
         "connected" => "Bağlı",
         "ready" => "Hazır",
         "disconnected" => "Bağlantı Yok",
@@ -449,7 +449,7 @@ fn translate_tr(key: &'static str) -> &'static str {
         "auto_detect_recommended" => "Otomatik Algıla (Önerilen)",
         "active_hw_interface" => "Aktif Donanım Arayüzü",
         "active_hw_interface_sub" => "Sistemde tespit edilen kontrol mekanizması",
-        "about_group" => "OmenSpace Hakkında",
+        "about_group" => "OMEN-HUB Hakkında",
         "version" => "Versiyon",
         "device" => "Cihaz",
         "kernel" => "Kernel",
@@ -522,7 +522,7 @@ fn translate_tr(key: &'static str) -> &'static str {
 fn translate_en(key: &'static str) -> &'static str {
     match key {
         // App / Navigation
-        "app_title" => "OmenSpace",
+        "app_title" => "OMEN-HUB",
         "menu" => "Menu",
         "nav_performance" => "Performance",
         "nav_undervolt" => "Advanced Power",
@@ -731,7 +731,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "search_apps" => "Search apps...",
 
         // Updater Page
-        "updater_desc" => "Manage OmenSpace and device firmware updates",
+        "updater_desc" => "Manage OMEN-HUB and device firmware updates",
         "current_version" => "Current Version",
         "last_checked" => "Last checked: Today",
         "update_status" => "Update Status",
@@ -769,7 +769,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "ok_btn" => "OK",
 
         // Settings Page
-        "settings_desc" => "OmenSpace daemon & application configuration",
+        "settings_desc" => "OMEN-HUB daemon & application configuration",
         "hw_config_group" => "Hardware Configuration",
         "appearance_and_lang" => "Appearance & Language",
         "appearance_mode" => "Theme Appearance",
@@ -778,7 +778,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "language_row_sub" => "Select interface language instantly",
         "daemon_group" => "Daemon",
         "daemon_status" => "Daemon Status",
-        "daemon_status_sub" => "Connection to OmenSpace background service",
+        "daemon_status_sub" => "Connection to OMEN-HUB background service",
         "connected" => "Connected",
         "ready" => "Ready",
         "disconnected" => "Disconnected",
@@ -806,7 +806,7 @@ fn translate_en(key: &'static str) -> &'static str {
         "auto_detect_recommended" => "Auto Detect (Recommended)",
         "active_hw_interface" => "Active Hardware Interface",
         "active_hw_interface_sub" => "Detected hardware control mechanism on this system",
-        "about_group" => "About OmenSpace",
+        "about_group" => "About OMEN-HUB",
         "version" => "Version",
         "device" => "Device",
         "kernel" => "Kernel",

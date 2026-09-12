@@ -1,14 +1,19 @@
+use crate::i18n::{self, Language};
+use adw::prelude::*;
 use gtk::prelude::*;
 use libadwaita as adw;
-use adw::prelude::*;
 use std::rc::Rc;
-use crate::i18n::{self, Language};
 
 /* ─────────────────────────────────────────────────────────────
-   settings.rs — Application & daemon settings
-   ───────────────────────────────────────────────────────────── */
+settings.rs — Application & daemon settings
+───────────────────────────────────────────────────────────── */
 
-pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dyn Fn()>>, lb_group_opt: Option<adw::PreferencesGroup>, lb_preview_group_opt: Option<adw::PreferencesGroup>) -> gtk::Box {
+pub fn build_page(
+    window: &adw::ApplicationWindow,
+    on_lang_changed: Option<Rc<dyn Fn()>>,
+    lb_group_opt: Option<adw::PreferencesGroup>,
+    lb_preview_group_opt: Option<adw::PreferencesGroup>,
+) -> gtk::Box {
     let mut init_hb = 30.0;
     let mut init_auto = true;
     let mut init_startup_profile = 0u32;
@@ -16,23 +21,41 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
     let mut init_thermal_alerts = true;
     let mut init_zone_override = 0u32;
     let mut init_appearance_mode = 0u32;
-    
+
     let specs = crate::daemon_client::get_hardware_specs_sync();
     let prod_lower = specs.product_name.to_lowercase();
-    let mut init_lightbar = prod_lower.contains("desktop") || prod_lower.contains("transcend") || prod_lower.contains("max");
+    let mut init_lightbar = prod_lower.contains("desktop")
+        || prod_lower.contains("transcend")
+        || prod_lower.contains("max");
 
     if let Ok(home) = std::env::var("HOME") {
         let path = format!("{}/.config/omenspace/settings.json", home);
         if let Ok(json_str) = std::fs::read_to_string(&path) {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(hb) = json.get("heartbeat_interval").and_then(|v| v.as_f64()) { init_hb = hb; }
-                if let Some(auto) = json.get("autostart").and_then(|v| v.as_bool()) { init_auto = auto; }
-                if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) { init_startup_profile = sp as u32; }
-                if let Some(bc) = json.get("battery_care").and_then(|v| v.as_bool()) { init_battery_care = bc; }
-                if let Some(ta) = json.get("thermal_alerts").and_then(|v| v.as_bool()) { init_thermal_alerts = ta; }
-                if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) { init_zone_override = zo as u32; }
-                if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) { init_appearance_mode = am as u32; }
-                if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) { init_lightbar = lb; }
+                if let Some(hb) = json.get("heartbeat_interval").and_then(|v| v.as_f64()) {
+                    init_hb = hb;
+                }
+                if let Some(auto) = json.get("autostart").and_then(|v| v.as_bool()) {
+                    init_auto = auto;
+                }
+                if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
+                    init_startup_profile = sp as u32;
+                }
+                if let Some(bc) = json.get("battery_care").and_then(|v| v.as_bool()) {
+                    init_battery_care = bc;
+                }
+                if let Some(ta) = json.get("thermal_alerts").and_then(|v| v.as_bool()) {
+                    init_thermal_alerts = ta;
+                }
+                if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
+                    init_zone_override = zo as u32;
+                }
+                if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) {
+                    init_appearance_mode = am as u32;
+                }
+                if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) {
+                    init_lightbar = lb;
+                }
             }
         }
     }
@@ -48,16 +71,20 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         .spacing(4)
         .margin_bottom(4)
         .build();
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("title_settings"))
-        .css_classes(["page-title"])
-        .halign(gtk::Align::Start)
-        .build());
-    hdr.append(&gtk::Label::builder()
-        .label(i18n::t("settings_desc"))
-        .css_classes(["os-section-desc"])
-        .halign(gtk::Align::Start)
-        .build());
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("title_settings"))
+            .css_classes(["page-title"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
+    hdr.append(
+        &gtk::Label::builder()
+            .label(i18n::t("settings_desc"))
+            .css_classes(["os-section-desc"])
+            .halign(gtk::Align::Start)
+            .build(),
+    );
     page.append(&hdr);
 
     // ── Hardware Config group ─────────────────────────────────
@@ -105,7 +132,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         .model(&appearance_model)
         .selected(init_appearance_mode)
         .build();
-    
+
     appearance_row.connect_selected_notify(|row| {
         let idx = row.selected();
         let scheme = match idx {
@@ -119,10 +146,15 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             let path = format!("{}/.config/omenspace/settings.json", home);
             let mut json = serde_json::json!({});
             if let Ok(js) = std::fs::read_to_string(&path) {
-                if let Ok(j) = serde_json::from_str::<serde_json::Value>(&js) { json = j; }
+                if let Ok(j) = serde_json::from_str::<serde_json::Value>(&js) {
+                    json = j;
+                }
             }
             json["appearance_mode"] = serde_json::json!(idx);
-            let _ = std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap_or_default());
+            let _ = std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&json).unwrap_or_default(),
+            );
         }
     });
     app_lang_group.add(&appearance_row);
@@ -168,8 +200,16 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         .subtitle(i18n::t("daemon_status_sub"))
         .build();
     let status_badge = gtk::Label::builder()
-        .label(if daemon_alive { i18n::t("connected") } else { i18n::t("disconnected") })
-        .css_classes(if daemon_alive { ["badge-ok"] } else { ["badge-warn"] })
+        .label(if daemon_alive {
+            i18n::t("connected")
+        } else {
+            i18n::t("disconnected")
+        })
+        .css_classes(if daemon_alive {
+            ["badge-ok"]
+        } else {
+            ["badge-warn"]
+        })
         .valign(gtk::Align::Center)
         .build();
     daemon_row.add_suffix(&status_badge);
@@ -257,7 +297,10 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
                 "zone_override": zo,
                 "lightbar_enabled": lb
             });
-            let _ = std::fs::write(path, serde_json::to_string_pretty(&json).unwrap_or_default());
+            let _ = std::fs::write(
+                path,
+                serde_json::to_string_pretty(&json).unwrap_or_default(),
+            );
         }
     };
 
@@ -268,7 +311,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
     autostart_row.connect_active_notify(move |_| s2());
     let s3 = save_settings_rc.clone();
     startup_mode_row.connect_selected_notify(move |_| s3());
-    
+
     let s4 = save_settings_rc.clone();
     battery_row.connect_active_notify(move |r| {
         s4();
@@ -276,13 +319,13 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         let limit = if r.is_active() { 80 } else { 100 };
         crate::daemon_client::set_battery_care_sync(limit);
     });
-    
+
     let s5 = save_settings_rc.clone();
     thermal_row.connect_active_notify(move |r| {
         s5();
         crate::daemon_client::set_thermal_protection_sync(r.is_active());
     });
-    
+
     let s6 = save_settings_rc.clone();
     zone_override_row.connect_selected_notify(move |_| {
         s6();
@@ -290,7 +333,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             cb();
         }
     });
-    
+
     let s7 = save_settings_rc.clone();
     lightbar_row.connect_active_notify(move |r| {
         s7();
@@ -302,7 +345,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             pgrp.set_visible(is_active);
         }
     });
-    
+
     page.append(&perf_group);
 
     // ── Fan Control group ─────────────────────────────────────
@@ -315,8 +358,12 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         .subtitle(i18n::t("fan_cleaning_sub"))
         .activatable(true)
         .build();
-    fan_clean_row.add_suffix(&gtk::Image::builder().icon_name("weather-storm-symbolic").build());
-    
+    fan_clean_row.add_suffix(
+        &gtk::Image::builder()
+            .icon_name("weather-storm-symbolic")
+            .build(),
+    );
+
     let win_clone_clean = window.clone();
     fan_clean_row.connect_activated(move |_| {
         let dialog = adw::MessageDialog::builder()
@@ -324,10 +371,15 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             .body(i18n::t("fan_cleaning_msg"))
             .transient_for(&win_clone_clean)
             .build();
-        let spinner = gtk::Spinner::builder().spinning(true).halign(gtk::Align::Center).margin_top(12).margin_bottom(12).build();
+        let spinner = gtk::Spinner::builder()
+            .spinning(true)
+            .halign(gtk::Align::Center)
+            .margin_top(12)
+            .margin_bottom(12)
+            .build();
         dialog.set_extra_child(Some(&spinner));
         dialog.present();
-        
+
         let dialog_clone = dialog.clone();
         glib::spawn_future_local(async move {
             let res = crate::daemon_client::run_fan_cleaning_async().await;
@@ -338,10 +390,9 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             dialog_clone.connect_response(None, |d: &adw::MessageDialog, _| d.close());
         });
     });
-    
+
     fan_control_group.add(&fan_clean_row);
     page.append(&fan_control_group);
-
 
     // ── Troubleshooting & Diagnostics group ─────────────────────
     let trouble_group = adw::PreferencesGroup::builder()
@@ -355,7 +406,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         .activatable(true)
         .build();
     rgb_issue_row.add_suffix(&gtk::Image::builder().icon_name("go-next-symbolic").build());
-    
+
     let dsdt_row = adw::ActionRow::builder()
         .title(i18n::t("diag_report_title"))
         .subtitle(i18n::t("diag_report_sub"))
@@ -378,24 +429,38 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             .body(i18n::t("wait_hw_footprint"))
             .transient_for(&win_clone1)
             .build();
-        let spinner = gtk::Spinner::builder().spinning(true).halign(gtk::Align::Center).margin_top(12).margin_bottom(12).build();
+        let spinner = gtk::Spinner::builder()
+            .spinning(true)
+            .halign(gtk::Align::Center)
+            .margin_top(12)
+            .margin_bottom(12)
+            .build();
         dialog.set_extra_child(Some(&spinner));
         dialog.present();
-        
+
         let dialog_clone = dialog.clone();
         glib::spawn_future_local(async move {
             let res = crate::daemon_client::generate_rgb_issue_async().await;
             spinner.set_spinning(false);
-            
+
             match res {
                 Ok(report) => {
                     dialog_clone.set_heading(Some(i18n::t("rgb_issue_ready")));
                     dialog_clone.set_body(i18n::t("copy_report_gh"));
-                    let tv = gtk::TextView::builder().editable(false).wrap_mode(gtk::WrapMode::WordChar).hexpand(true).vexpand(true).build();
+                    let tv = gtk::TextView::builder()
+                        .editable(false)
+                        .wrap_mode(gtk::WrapMode::WordChar)
+                        .hexpand(true)
+                        .vexpand(true)
+                        .build();
                     tv.buffer().set_text(&report);
-                    let sw = gtk::ScrolledWindow::builder().child(&tv).min_content_height(300).min_content_width(500).build();
+                    let sw = gtk::ScrolledWindow::builder()
+                        .child(&tv)
+                        .min_content_height(300)
+                        .min_content_width(500)
+                        .build();
                     dialog_clone.set_extra_child(Some(&sw));
-                },
+                }
                 Err(e) => {
                     dialog_clone.set_heading(Some(i18n::t("error_generic")));
                     dialog_clone.set_body(&format!("{}: {}", i18n::t("error_generic"), e));
@@ -417,12 +482,12 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
         let spinner = gtk::Spinner::builder().spinning(true).halign(gtk::Align::Center).margin_top(12).margin_bottom(12).build();
         dialog.set_extra_child(Some(&spinner));
         dialog.present();
-        
+
         let dialog_clone = dialog.clone();
         glib::spawn_future_local(async move {
             let res = crate::daemon_client::generate_diagnostic_report_async().await;
             spinner.set_spinning(false);
-            
+
             match res {
                 Ok(report) => {
                     dialog_clone.set_heading(Some(i18n::t("diag_report_ready")));
@@ -444,7 +509,7 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
                     dialog_clone.connect_response(None, move |d: &adw::MessageDialog, response| {
                         if response == "issue" {
                             use urlencoding::encode;
-                            let url = format!("https://github.com/yunusemreyl/omen-space/issues/new?title=Diagnostic+Report&body={}", encode(&report_clone));
+                            let url = format!("https://github.com/AdityaTummuri/OMEN-HUB/issues/new?title=Diagnostic+Report&body={}", encode(&report_clone));
                             let _ = gtk::gio::AppInfo::launch_default_for_uri(&url, None::<&gtk::gio::AppLaunchContext>);
                         }
                         d.close();
@@ -467,21 +532,21 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
             .body("We will light up each of the 104 keys one by one.\nPlease type the name of the key that is currently lit (e.g. 'W', 'Esc', 'Space').")
             .transient_for(&win_clone3)
             .build();
-            
+
         let entry = gtk::Entry::builder()
             .placeholder_text(i18n::t("wiz_key_name_ph"))
             .hexpand(true)
             .margin_top(12)
             .build();
-            
+
         dialog.set_extra_child(Some(&entry));
-        
+
         dialog.add_response("cancel", i18n::t("btn_cancel"));
         dialog.add_response("next", i18n::t("btn_start_next"));
         dialog.set_response_appearance("next", adw::ResponseAppearance::Suggested);
-        
+
         let current_index = std::rc::Rc::new(std::cell::RefCell::new(0u32));
-        
+
         dialog.connect_response(None, move |d: &adw::MessageDialog, response| {
             if response == "cancel" {
                 d.close();
@@ -494,9 +559,9 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
                         if let Some(text_view) = tv.child().and_then(|c| c.downcast::<gtk::TextView>().ok()) {
                             let buf = text_view.buffer();
                             let report = buf.text(&buf.start_iter(), &buf.end_iter(), false).to_string();
-                            
+
                             use urlencoding::encode;
-                            let url = format!("https://github.com/yunusemreyl/omen-space/issues/new?title=Per-Key+Mapping+Data&body={}", encode(&report));
+                            let url = format!("https://github.com/AdityaTummuri/OMEN-HUB/issues/new?title=Per-Key+Mapping+Data&body={}", encode(&report));
                             let _ = gtk::gio::AppInfo::launch_default_for_uri(&url, None::<&gtk::gio::AppLaunchContext>);
                         }
                     }
@@ -516,43 +581,43 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
                     });
                     return;
                 }
-                
+
                 let key_name = entry.text().to_string();
                 if key_name.trim().is_empty() {
                     return;
                 }
-                
+
                 let prev_idx = *idx;
                 *idx += 1;
                 let next_idx = *idx;
                 entry.set_text("");
-                
+
                 let dialog_c = d.clone();
                 let entry_c = entry.clone();
                 glib::spawn_future_local(async move {
                     let _ = crate::daemon_client::record_key_mapping_async(prev_idx, &key_name).await;
-                    
+
                     if next_idx > 104 {
                         let report = crate::daemon_client::export_keymap_report_async().await.unwrap_or_default();
                         dialog_c.set_heading(Some(i18n::t("wiz_complete")));
                         dialog_c.set_body(i18n::t("wiz_complete_body"));
-                        
+
                         let tv = gtk::TextView::builder().editable(false).wrap_mode(gtk::WrapMode::WordChar).hexpand(true).vexpand(true).build();
                         tv.buffer().set_text(&report);
                         let sw = gtk::ScrolledWindow::builder().child(&tv).min_content_height(300).min_content_width(500).build();
                         dialog_c.set_extra_child(Some(&sw));
-                        
+
                         dialog_c.set_response_label("next", i18n::t("btn_create_gh_issue"));
                         return;
                     }
-                    
+
                     let _ = crate::daemon_client::light_key_index_async(next_idx, "#FFFFFF").await;
                     dialog_c.set_body(&format!("{} / 104 is lit. What is it?", next_idx));
                     entry_c.grab_focus();
                 });
             }
         });
-        
+
         dialog.present();
     });
 
@@ -578,11 +643,13 @@ pub fn build_page(window: &adw::ApplicationWindow, on_lang_changed: Option<Rc<dy
 
     for (title, val) in about_items {
         let row = adw::ActionRow::builder().title(title).build();
-        row.add_suffix(&gtk::Label::builder()
-            .label(val)
-            .css_classes(["os-section-desc"])
-            .valign(gtk::Align::Center)
-            .build());
+        row.add_suffix(
+            &gtk::Label::builder()
+                .label(val)
+                .css_classes(["os-section-desc"])
+                .valign(gtk::Align::Center)
+                .build(),
+        );
         about_group.add(&row);
     }
     page.append(&about_group);

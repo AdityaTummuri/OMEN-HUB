@@ -862,7 +862,7 @@ impl SysMonInterface {
             .to_string();
 
         let mut report = String::new();
-        report.push_str("# OMENSpace Diagnostic Report\n\n");
+        report.push_str("# OMEN-HUB Diagnostic Report\n\n");
         let date = std::process::Command::new("date")
             .arg("+%Y-%m-%d %H:%M:%S")
             .output()
@@ -873,7 +873,7 @@ impl SysMonInterface {
         // ── Environment ──────────────────────────────────────────
         report.push_str("## Environment\n\n| Field | Value |\n|-------|-------|\n");
         report.push_str(&format!(
-            "| OMENSpace version | `{}` |\n",
+            "| OMEN-HUB version   | `{}` |\n",
             env!("CARGO_PKG_VERSION")
         ));
         report.push_str(&format!("| OS                | `{}` |\n", specs.os_spec));
@@ -1027,7 +1027,7 @@ impl SysMonInterface {
         }
         issue.push_str("```\n\n");
 
-        issue.push_str("**Description:**\nMy keyboard backlight is not detected or cannot be controlled by OMENSpace. Here are the diagnostics.\n");
+        issue.push_str("**Description:**\nMy keyboard backlight is not detected or cannot be controlled by OMEN-HUB. Here are the diagnostics.\n");
 
         issue
     }

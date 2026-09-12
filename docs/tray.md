@@ -1,6 +1,6 @@
-# OMENSpace Tray (`omen-tray`)
+# OMEN-HUB Tray (`omen-tray`)
 
-The `omen-tray` crate provides a lightweight, unobtrusive system tray (AppIndicator/KDE System Notification Item) icon for OMENSpace. It is meant to run continuously in the background without eating up memory or CPU cycles.
+The `omen-tray` crate provides a lightweight, unobtrusive system tray (AppIndicator/KDE System Notification Item) icon for OMEN-HUB. It is meant to run continuously in the background without eating up memory or CPU cycles.
 
 ## Responsibilities & Features
 
@@ -26,7 +26,7 @@ The `omen-tray` crate provides a lightweight, unobtrusive system tray (AppIndica
 ### Code Breakdown (`src/main.rs`)
 
 1. **`struct Tray`**: 
-   The core structure implementing the `ksni::Tray` trait. It defines the icon (`omen-space`) and the title.
+   The core structure implementing the `ksni::Tray` trait. It defines the icon (`omenspace`) and the title (`OMEN-HUB`).
 2. **`fn menu(&self)`**:
    This trait method constructs the actual drop-down menu hierarchy:
    - It uses `StandardItem` for clickable buttons and `SubMenu` for nested categories (e.g., "Güç Profili").

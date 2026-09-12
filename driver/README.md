@@ -27,8 +27,8 @@ A Linux kernel module that adds manual fan speed control and keyboard RGB backli
 The included `setup.sh` script auto-detects your distro, installs dependencies, and sets up DKMS:
 
 ```bash
-git clone https://github.com/yunusemreyl/OmenCtl
-cd OmenCtl/driver
+git clone https://github.com/AdityaTummuri/OMEN-HUB.git
+cd OMEN-HUB/driver
 sudo ./setup.sh
 ```
 
@@ -51,8 +51,8 @@ sudo LLVM=1 ./setup.sh
 ### Manual DKMS Install
 
 ```bash
-git clone https://github.com/yunusemreyl/OmenCtl
-cd OmenCtl/driver
+git clone https://github.com/AdityaTummuri/OMEN-HUB.git
+cd OMEN-HUB/driver
 make
 sudo make install-dkms
 ```
@@ -60,8 +60,8 @@ sudo make install-dkms
 ### Arch Linux (AUR)
 
 ```bash
-git clone https://github.com/yunusemreyl/OmenCtl
-cd OmenCtl/driver
+git clone https://github.com/AdityaTummuri/OMEN-HUB.git
+cd OMEN-HUB/driver
 make install-arch
 ```
 
@@ -73,7 +73,7 @@ Add the repo as a flake input:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    hp_wmi_control.url = "github:yunusemreyl/OmenCtl";
+    hp_wmi_control.url = "github:AdityaTummuri/OMEN-HUB";
   };
   outputs = { self, nixpkgs, hp_wmi_control, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -96,8 +96,8 @@ Add the repo as a flake input:
 ### Temporary Install (Testing Only)
 
 ```bash
-git clone https://github.com/yunusemreyl/OmenCtl
-cd OmenCtl/driver
+git clone https://github.com/AdityaTummuri/OMEN-HUB.git
+cd OMEN-HUB/driver
 make
 sudo rmmod hp-wmi
 sudo modprobe led_class_multicolor

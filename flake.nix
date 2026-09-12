@@ -1,5 +1,5 @@
 {
-  description = "Omen Space: HP Laptop manager for Linux";
+  description = "OMEN-HUB: HP Laptop manager for Linux";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -80,7 +80,7 @@
           cfg = config.programs.omen-space;
         in {
           options.programs.omen-space = {
-            enable = lib.mkEnableOption "Omen Space: HP Laptop manager for Linux";
+            enable = lib.mkEnableOption "OMEN-HUB: HP Laptop manager for Linux";
           };
 
           config = mkIf cfg.enable {

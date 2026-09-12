@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=OMEN SPACE
+Name=OMEN-HUB
 Comment=Control center for HP OMEN laptops
 Exec=omen-gui
 Icon=omenspace

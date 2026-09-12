@@ -96,7 +96,7 @@ pub fn t(key: &'static str) -> &'static str {
 
 fn translate_tr(key: &'static str) -> &'static str {
     match key {
-        "tray_open" => "OMENSpace'i Aç",
+        "tray_open" => "OMEN-HUB'ı Aç",
         "power_mode" => "Güç Modu",
         "mode_work" => "Work",
         "mode_game" => "Game",
@@ -123,7 +123,7 @@ fn translate_tr(key: &'static str) -> &'static str {
 
 fn translate_en(key: &'static str) -> &'static str {
     match key {
-        "tray_open" => "Open OMENSpace",
+        "tray_open" => "Open OMEN-HUB",
         "power_mode" => "Power Mode",
         "mode_work" => "Work",
         "mode_game" => "Game",

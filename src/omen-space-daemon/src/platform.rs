@@ -1,3 +1,5 @@
+use glob::glob;
+use log::{info, warn};
 /// Platform service - matches Python platform_service.py feature-for-feature.
 ///
 /// D-Bus interface: com.yyl.hpmanager.platform (backward compat) +
@@ -20,8 +22,6 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use zbus::interface;
-use log::{info, warn};
-use glob::glob;
 
 const CONFIG_PATH: &str = "/etc/omen-space/platform.json";
 const HWDB_PATH: &str = "/etc/udev/hwdb.d/90-hp-keyboard-fixes.hwdb";
@@ -89,12 +89,19 @@ fn is_nixos() -> bool {
 
 fn find_best_cpu_temp_path() -> Option<String> {
     const RANK_DRV: &[(&str, i32)] = &[
-        ("zenpower", 100), ("coretemp", 90), ("k10temp", 90),
-        ("cpu_thermal", 80), ("hp_wmi", 60), ("acpitz", 30),
+        ("zenpower", 100),
+        ("coretemp", 90),
+        ("k10temp", 90),
+        ("cpu_thermal", 80),
+        ("hp_wmi", 60),
+        ("acpitz", 30),
     ];
     const RANK_LBL: &[(&str, i32)] = &[
-        ("tdie", 100), ("package id 0", 95), ("tctl", 90),
-        ("core", 80), ("composite", 50),
+        ("tdie", 100),
+        ("package id 0", 95),
+        ("tctl", 90),
+        ("core", 80),
+        ("composite", 50),
     ];
 
     let mut best_score = i32::MIN;
@@ -106,25 +113,37 @@ fn find_best_cpu_temp_path() -> Option<String> {
             let name = std::fs::read_to_string(path.join("name"))
                 .map(|s| s.trim().to_lowercase())
                 .unwrap_or_default();
-            let d_score = RANK_DRV.iter().find(|(n, _)| name.contains(n))
-                .map(|(_, s)| *s).unwrap_or(10);
+            let d_score = RANK_DRV
+                .iter()
+                .find(|(n, _)| name.contains(n))
+                .map(|(_, s)| *s)
+                .unwrap_or(10);
 
             if let Ok(inputs) = std::fs::read_dir(&path) {
                 for inp in inputs.filter_map(Result::ok) {
                     let fname = inp.file_name().to_string_lossy().to_string();
-                    if !fname.starts_with("temp") || !fname.ends_with("_input") { continue; }
+                    if !fname.starts_with("temp") || !fname.ends_with("_input") {
+                        continue;
+                    }
                     // Skip if zero or negative
                     if let Ok(val) = std::fs::read_to_string(inp.path()) {
-                        if val.trim().parse::<i32>().unwrap_or(0) <= 0 { continue; }
-                    } else { continue; }
+                        if val.trim().parse::<i32>().unwrap_or(0) <= 0 {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
                     let prefix = fname.split('_').next().unwrap_or("");
                     let label_path = path.join(format!("{}_label", prefix));
                     let label = std::fs::read_to_string(&label_path)
                         .map(|s| s.trim().to_lowercase())
                         .unwrap_or_default();
-                    let l_score = RANK_LBL.iter()
+                    let l_score = RANK_LBL
+                        .iter()
                         .filter(|(k, _)| label.contains(k))
-                        .map(|(_, v)| *v).max().unwrap_or(0);
+                        .map(|(_, v)| *v)
+                        .max()
+                        .unwrap_or(0);
                     let score = d_score + l_score;
                     if score > best_score {
                         best_score = score;
@@ -166,20 +185,33 @@ fn read_temp(path: &str) -> f64 {
 
 fn get_battery_info() -> serde_json::Value {
     let bat_base = "/sys/class/power_supply/BAT0";
-    if !Path::new(bat_base).exists() { return serde_json::Value::Object(serde_json::Map::new()); }
+    if !Path::new(bat_base).exists() {
+        return serde_json::Value::Object(serde_json::Map::new());
+    }
 
     let mut bat = serde_json::Map::new();
-    let read = |name: &str| std::fs::read_to_string(format!("{}/{}", bat_base, name))
-        .map(|s| s.trim().to_string()).ok();
+    let read = |name: &str| {
+        std::fs::read_to_string(format!("{}/{}", bat_base, name))
+            .map(|s| s.trim().to_string())
+            .ok()
+    };
 
-    if let Some(s) = read("status") { bat.insert("status".into(), s.into()); }
-    if let Some(c) = read("capacity").and_then(|s| s.parse::<u32>().ok()) { bat.insert("capacity".into(), c.into()); }
-    if let Some(cc) = read("cycle_count").and_then(|s| s.parse::<u32>().ok()) { bat.insert("cycle_count".into(), cc.into()); }
+    if let Some(s) = read("status") {
+        bat.insert("status".into(), s.into());
+    }
+    if let Some(c) = read("capacity").and_then(|s| s.parse::<u32>().ok()) {
+        bat.insert("capacity".into(), c.into());
+    }
+    if let Some(cc) = read("cycle_count").and_then(|s| s.parse::<u32>().ok()) {
+        bat.insert("cycle_count".into(), cc.into());
+    }
     if let (Some(cf), Some(cfd)) = (
         read("charge_full").and_then(|s| s.parse::<u64>().ok()),
         read("charge_full_design").and_then(|s| s.parse::<u64>().ok()),
     ) {
-        if cfd > 0 { bat.insert("health".into(), ((cf * 100 / cfd).min(100)).into()); }
+        if cfd > 0 {
+            bat.insert("health".into(), ((cf * 100 / cfd).min(100)).into());
+        }
     }
     if let Some(p) = read("power_now").and_then(|s| s.parse::<u64>().ok()) {
         bat.insert("power_now".into(), (p as f64 / 1_000_000.0).into());
@@ -215,14 +247,19 @@ impl PlatformService {
                 .unwrap_or_else(|_| "Linux".to_string())
         };
         static_info.insert("hostname".into(), hostname.into());
-        static_info.insert("kernel".into(), std::fs::read_to_string("/proc/sys/kernel/osrelease")
-            .map(|s| s.trim().to_string()).unwrap_or_else(|_| "Linux".to_string()).into());
+        static_info.insert(
+            "kernel".into(),
+            std::fs::read_to_string("/proc/sys/kernel/osrelease")
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "Linux".to_string())
+                .into(),
+        );
         static_info.insert("os_name".into(), "Linux".into());
-        
+
         let prod_name = read_dmi("product_name");
         let board_id = read_dmi("board_name");
         let cpu_name = get_cpu_model();
-        
+
         static_info.insert("product_name".into(), prod_name.clone().into());
         static_info.insert("board_id".into(), board_id.clone().into());
         static_info.insert("cpu_name".into(), cpu_name.clone().into());
@@ -230,8 +267,11 @@ impl PlatformService {
         static_info.insert("bios_date".into(), read_dmi("bios_date").into());
 
         let caps = crate::capabilities::detect(&board_id, &prod_name, &cpu_name);
-        static_info.insert("capabilities".into(), serde_json::to_value(caps).unwrap_or_default());
-        
+        static_info.insert(
+            "capabilities".into(),
+            serde_json::to_value(caps).unwrap_or_default(),
+        );
+
         let ec = crate::ec::LinuxEcController::new();
         static_info.insert("ec_access".into(), ec.has_ec_access().into());
         static_info.insert("is_unsafe_ec".into(), ec.needs_ec_fallback().into());
@@ -285,7 +325,9 @@ impl PlatformService {
                 let g_temp = gpu_path.as_deref().map(read_temp).unwrap_or(0.0);
                 let bat = get_battery_info();
                 (c_temp, g_temp, bat)
-            }).await.unwrap_or((0.0, 0.0, serde_json::Value::Object(serde_json::Map::new())));
+            })
+            .await
+            .unwrap_or((0.0, 0.0, serde_json::Value::Object(serde_json::Map::new())));
 
             {
                 let mut g = inner.lock().await;
@@ -314,31 +356,43 @@ fn write_hwdb_rules(prtsc: bool, f1: bool) {
         if Path::new(HWDB_PATH).exists() {
             let _ = std::fs::remove_file(HWDB_PATH);
             tokio::spawn(async {
-                let _ = tokio::process::Command::new("systemd-hwdb").arg("update").output().await;
-                let _ = tokio::process::Command::new("udevadm").args(["trigger", "-s", "input"]).output().await;
+                let _ = tokio::process::Command::new("systemd-hwdb")
+                    .arg("update")
+                    .output()
+                    .await;
+                let _ = tokio::process::Command::new("udevadm")
+                    .args(["trigger", "-s", "input"])
+                    .output()
+                    .await;
             });
         }
         return;
     }
     let mut lines = vec![
-        "# HP Keyboard Fixes & Macro Mappings - Generated by Omen Space".to_string(),
+        "# HP Keyboard Fixes & Macro Mappings - Generated by OMEN-HUB".to_string(),
         "evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*".to_string(),
     ];
-    if prtsc { lines.push(" KEYBOARD_KEY_b7=sysrq".to_string()); }
-    if f1    { lines.push(" KEYBOARD_KEY_ab=f1".to_string()); }
-    
+    if prtsc {
+        lines.push(" KEYBOARD_KEY_b7=sysrq".to_string());
+    }
+    if f1 {
+        lines.push(" KEYBOARD_KEY_ab=f1".to_string());
+    }
+
     // Always map macro keys to standard keysyms
-    lines.push(" KEYBOARD_KEY_8c=calc".to_string());   // 140 -> Calculator
-    lines.push(" KEYBOARD_KEY_94=prog1".to_string());  // 148 -> Omen Key
-    lines.push(" KEYBOARD_KEY_95=prog2".to_string());  // 149 -> P1/P2/Prog2
-    lines.push(" KEYBOARD_KEY_bf=f21".to_string());    // 191 -> f21
+    lines.push(" KEYBOARD_KEY_8c=calc".to_string()); // 140 -> Calculator
+    lines.push(" KEYBOARD_KEY_94=prog1".to_string()); // 148 -> Omen Key
+    lines.push(" KEYBOARD_KEY_95=prog2".to_string()); // 149 -> P1/P2/Prog2
+    lines.push(" KEYBOARD_KEY_bf=f21".to_string()); // 191 -> f21
     lines.push(" KEYBOARD_KEY_100=prog3".to_string()); // 256 -> P3/Prog3
-    
+
     let content = lines.join("\n") + "\n";
 
     // Skip if unchanged
     if let Ok(existing) = std::fs::read_to_string(HWDB_PATH) {
-        if existing == content { return; }
+        if existing == content {
+            return;
+        }
     }
 
     if let Some(dir) = Path::new(HWDB_PATH).parent() {
@@ -346,8 +400,14 @@ fn write_hwdb_rules(prtsc: bool, f1: bool) {
     }
     if std::fs::write(HWDB_PATH, &content).is_ok() {
         tokio::spawn(async {
-            let _ = tokio::process::Command::new("systemd-hwdb").arg("update").output().await;
-            let _ = tokio::process::Command::new("udevadm").args(["trigger", "-s", "input"]).output().await;
+            let _ = tokio::process::Command::new("systemd-hwdb")
+                .arg("update")
+                .output()
+                .await;
+            let _ = tokio::process::Command::new("udevadm")
+                .args(["trigger", "-s", "input"])
+                .output()
+                .await;
             info!("Keyboard fixes applied via hwdb");
         });
     }
@@ -399,7 +459,9 @@ impl PlatformService {
         let mut set = false;
         if let Ok(entries) = glob("/sys/class/power_supply/BAT*/charge_control_end_threshold") {
             for entry in entries.filter_map(Result::ok) {
-                if tokio::fs::write(&entry, limit.to_string()).await.is_ok() { set = true; }
+                if tokio::fs::write(&entry, limit.to_string()).await.is_ok() {
+                    set = true;
+                }
             }
         }
 
@@ -416,8 +478,14 @@ impl PlatformService {
     async fn clean_memory(&self) -> String {
         let _ = tokio::process::Command::new("sync").output().await;
         match tokio::fs::write("/proc/sys/vm/drop_caches", "3\n").await {
-            Ok(_) => { info!("CleanMemory: page cache dropped"); "OK".to_string() }
-            Err(e) => { warn!("CleanMemory failed: {}", e); format!("Error: {}", e) }
+            Ok(_) => {
+                info!("CleanMemory: page cache dropped");
+                "OK".to_string()
+            }
+            Err(e) => {
+                warn!("CleanMemory failed: {}", e);
+                format!("Error: {}", e)
+            }
         }
     }
 
@@ -425,9 +493,9 @@ impl PlatformService {
     async fn generate_hardware_dump(&self) -> String {
         let g = self.inner.lock().await;
         let mut lines = vec![
-            "# Omen Space Hardware Report".to_string(),
+            "# OMEN-HUB Hardware Report".to_string(),
             String::new(),
-            "Paste this into a new GitHub issue at https://github.com/yunusemreyl/omen-space/issues".to_string(),
+            "Paste this into a new GitHub issue at https://github.com/AdityaTummuri/OMEN-HUB/issues".to_string(),
             String::new(),
             "## System".to_string(),
         ];
@@ -442,19 +510,47 @@ impl PlatformService {
         let g = self.inner.lock().await;
 
         let mut sys = serde_json::Map::new();
-        sys.insert("product_name".into(), g.static_info.get("product_name").cloned().unwrap_or_default());
-        sys.insert("board_id".into(), g.static_info.get("board_id").cloned().unwrap_or_default());
-        sys.insert("cpu_name".into(), g.static_info.get("cpu_name").cloned().unwrap_or_default());
-        sys.insert("kernel".into(), g.static_info.get("kernel").cloned().unwrap_or_default());
-        sys.insert("bios_version".into(), g.static_info.get("bios_version").cloned().unwrap_or_default());
-        sys.insert("bios_date".into(), g.static_info.get("bios_date").cloned().unwrap_or_default());
+        sys.insert(
+            "product_name".into(),
+            g.static_info
+                .get("product_name")
+                .cloned()
+                .unwrap_or_default(),
+        );
+        sys.insert(
+            "board_id".into(),
+            g.static_info.get("board_id").cloned().unwrap_or_default(),
+        );
+        sys.insert(
+            "cpu_name".into(),
+            g.static_info.get("cpu_name").cloned().unwrap_or_default(),
+        );
+        sys.insert(
+            "kernel".into(),
+            g.static_info.get("kernel").cloned().unwrap_or_default(),
+        );
+        sys.insert(
+            "bios_version".into(),
+            g.static_info
+                .get("bios_version")
+                .cloned()
+                .unwrap_or_default(),
+        );
+        sys.insert(
+            "bios_date".into(),
+            g.static_info.get("bios_date").cloned().unwrap_or_default(),
+        );
 
         // Secure Boot check
         let mut secure_boot = "Unknown".to_string();
         if let Ok(mut entries) = glob("/sys/firmware/efi/efivars/SecureBoot-*") {
             if let Some(Ok(p)) = entries.next() {
                 if let Ok(b) = tokio::fs::read(&p).await {
-                    secure_boot = if *b.last().unwrap_or(&0) == 1 { "Enabled".to_string() } else { "Disabled".to_string() };
+                    secure_boot = if *b.last().unwrap_or(&0) == 1 {
+                        "Enabled".to_string()
+                    } else {
+                        "Disabled".to_string()
+                    };
                 }
             }
         }
@@ -470,7 +566,9 @@ impl PlatformService {
     async fn run_wmi_diagnostics(&self) -> String {
         let report = tokio::task::spawn_blocking(|| {
             crate::wmi_diagnostics::WmiDiagnosticRunner::run_full_suite()
-        }).await.unwrap_or_else(|_| crate::wmi_diagnostics::WmiDiagnosticReport {
+        })
+        .await
+        .unwrap_or_else(|_| crate::wmi_diagnostics::WmiDiagnosticReport {
             total_tests: 0,
             passed_tests: 0,
             failed_tests: 0,
@@ -486,15 +584,16 @@ impl PlatformService {
             test_results: vec![],
         });
         let summary = report.status_summary.clone();
-        
+
         let report_json = serde_json::to_string_pretty(&report).unwrap_or_default();
         let _ = tokio::fs::write("/tmp/wmi-diagnostics-report.json", &report_json).await;
-        
+
         crate::notifier::DesktopNotifier::send_notification(
-            "OMENSpace WMI Diagnostics Complete",
+            "OMEN-HUB WMI Diagnostics Complete",
             &summary,
             if report.score_percent >= 90.0 { 0 } else { 1 },
-        ).await;
+        )
+        .await;
 
         report_json
     }
@@ -509,7 +608,9 @@ impl PlatformService {
         tokio::task::spawn_blocking(|| {
             let report = crate::conflict_detector::ConflictDetector::check_conflicts();
             serde_json::to_string_pretty(&report).unwrap_or_default()
-        }).await.unwrap_or_default()
+        })
+        .await
+        .unwrap_or_default()
     }
 
     /// AnalyzeAcpi — Dumps and analyzes ACPI DSDT & SSDT tables for WMI GUIDs and methods.
@@ -517,19 +618,24 @@ impl PlatformService {
         tokio::task::spawn_blocking(|| {
             let report = crate::acpi_diagnostics::AcpiDiagnosticRunner::analyze_acpi_tables();
             serde_json::to_string_pretty(&report).unwrap_or_default()
-        }).await.unwrap_or_default()
+        })
+        .await
+        .unwrap_or_default()
     }
 
     /// GenerateTriageBundle — Generates a complete triage log bundle archive (.tar.gz) & GitHub issue template.
     async fn generate_triage_bundle(&self) -> String {
         let archive_path = tokio::task::spawn_blocking(|| {
             crate::acpi_diagnostics::AcpiDiagnosticRunner::generate_triage_bundle()
-        }).await.unwrap_or_default();
+        })
+        .await
+        .unwrap_or_default();
         crate::notifier::DesktopNotifier::send_notification(
-            "OMENSpace Triage Bundle Created",
+            "OMEN-HUB Triage Bundle Created",
             &format!("Diagnostic bundle saved at {}", archive_path),
             0,
-        ).await;
+        )
+        .await;
         archive_path
     }
 
@@ -539,13 +645,13 @@ impl PlatformService {
         serde_json::to_string_pretty(&info).unwrap_or_default()
     }
 
-    /// CheckAppUpdate — Queries GitHub Releases for Omen Space updates.
+    /// CheckAppUpdate — Queries GitHub Releases for OMEN-HUB updates.
     async fn check_app_update(&self) -> String {
         let info = crate::auto_updater::AutoUpdateService::check_for_updates().await;
         serde_json::to_string_pretty(&info).unwrap_or_default()
     }
 
-    /// ApplyAppUpdate — Downloads and installs the latest Omen Space application update.
+    /// ApplyAppUpdate — Downloads and installs the latest OMEN-HUB application update.
     async fn apply_app_update(&self) -> String {
         crate::auto_updater::AutoUpdateService::apply_update().await
     }

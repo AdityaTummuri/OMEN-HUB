@@ -1,12 +1,12 @@
-# Comprehensive Code Review Guide for OMENSpace
+# Comprehensive Code Review Guide for OMEN-HUB
 
-This guide is intended for maintainers, senior contributors, and reviewers evaluating Pull Requests (PRs) submitted to the OMENSpace project. Our primary objective is to maintain a rock-solid, secure, and memory-safe architecture while interacting with sensitive laptop hardware.
+This guide is intended for maintainers, senior contributors, and reviewers evaluating Pull Requests (PRs) submitted to the OMEN-HUB project. Our primary objective is to maintain a rock-solid, secure, and memory-safe architecture while interacting with sensitive laptop hardware.
 
 ---
 
 ## 1. Security & Privilege Boundaries (CRITICAL)
 
-OMENSpace uses a split-privilege architecture. The user-facing apps (`omen-gui`, `omen-cli`, `omen-tray`) run entirely unprivileged, while the `omen-space-daemon` runs as root to interact with the kernel and hardware.
+OMEN-HUB uses a split-privilege architecture. The user-facing apps (`omen-gui`, `omen-cli`, `omen-tray`) run entirely unprivileged, while the `omen-space-daemon` runs as root to interact with the kernel and hardware.
 
 - **Zero Sudo in User Space:** 
   If a PR modifies `omen-gui`, `omen-tray`, or `omen-cli` to execute shell commands with `sudo` (e.g., `pkexec` or `sudo systemctl`), **reject it immediately**. All hardware logic must be routed through D-Bus to the daemon.
@@ -21,7 +21,7 @@ OMENSpace uses a split-privilege architecture. The user-facing apps (`omen-gui`,
 
 ## 2. Asynchronous Execution & Concurrency
 
-OMENSpace relies on the `tokio` asynchronous runtime to keep both the daemon and the GUI highly responsive.
+OMEN-HUB relies on the `tokio` asynchronous runtime to keep both the daemon and the GUI highly responsive.
 
 - **GTK Event Loop Freezing:** 
   In the GUI (`omen-gui`), heavy DBus calls or I/O operations **must not block the main thread**. Look for `glib::spawn_future_local` or `tokio::spawn`. If you spot `std::thread::sleep`, synchronous `std::fs::read_to_string` for large files, or `reqwest::blocking` inside UI signal handlers, request the author to switch to asynchronous equivalents.
@@ -66,7 +66,7 @@ HP hardware is highly proprietary and sensitive. Incorrect writes can brick devi
 - **Backward Compatibility:** 
   Avoid breaking existing D-Bus signatures if possible. If a method signature changes (e.g., adding an argument), ensure the GUI, CLI, and Tray clients are all updated in the same PR.
 - **Stateless Daemon:** 
-  The daemon should remain as stateless as possible. It should read the current hardware state directly from the kernel/ACPI rather than caching state internally, as the hardware state can be changed by the BIOS or OS outside of OMENSpace.
+  The daemon should remain as stateless as possible. It should read the current hardware state directly from the kernel/ACPI rather than caching state internally, as the hardware state can be changed by the BIOS or OS outside of OMEN-HUB.
 
 ---
 

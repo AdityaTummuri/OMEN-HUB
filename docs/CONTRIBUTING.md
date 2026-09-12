@@ -1,6 +1,6 @@
-# Contributing to OMENSpace
+# Contributing to OMEN-HUB
 
-Thank you for your interest in contributing to OMENSpace! As an open-source tool aiming to provide the best HP Omen/Victus hardware control on Linux, we welcome all pull requests—from typo fixes to entirely new hardware reverse-engineering.
+Thank you for your interest in contributing to OMEN-HUB! As an open-source tool aiming to provide the best HP Omen/Victus hardware control on Linux, we welcome all pull requests—from typo fixes to entirely new hardware reverse-engineering.
 
 ## Development Environment Setup
 
@@ -23,7 +23,7 @@ Thank you for your interest in contributing to OMENSpace! As an open-source tool
 ## Architectural Rules for Contributors
 
 1. **No Root in the GUI:**
-   - OMENSpace strictly follows a split privilege model. `omen-gui`, `omen-cli`, and `omen-tray` must **never** require `sudo`. 
+   - OMEN-HUB strictly follows a split privilege model. `omen-gui`, `omen-cli`, and `omen-tray` must **never** require `sudo`. 
    - If you need to access a new `/sys/` or `/dev/` endpoint, that logic MUST be written in `omen-space-daemon`.
    - The GUI will communicate with the daemon via D-Bus (`zbus`).
 

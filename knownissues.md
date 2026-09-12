@@ -1,6 +1,6 @@
 # Known Issues & Bug Reports
 
-The following issues have been resolved and tested with the Omen Space 2.0 architecture updates and patches.
+The following issues have been resolved and tested with the OMEN-HUB architecture updates and patches.
 
 ### [8A43] Bug Report — OMEN by HP Gaming Laptop 16-n0xxx #173
 - **Description:** Power profiles return to balanced on auto seconds after changing. `hp-rgb-lighting` DKMS module fails to build on kernel 6.12.104 with Clang (`make LLVM=1`).
@@ -12,7 +12,7 @@ The following issues have been resolved and tested with the Omen Space 2.0 archi
 
 ### [8D41] Bug Report — OMEN MAX Gaming Laptop 16-ah0xxx #169
 - **Description:** Changing RGB settings affects only RGB Bar. Zones are inverted horizontally (Zone 1 is on the right). Keyboard is breathing yellow/red, no per-key function active.
-- **Status:** ✅ **Resolved.** Activated Per-Key support with the new Omen Space 2.0 HID backend and resolved the inverted zones via the `has_per_key_rgb: true` note in `capabilities.rs`.
+- **Status:** ✅ **Resolved.** Activated Per-Key support with the new OMEN-HUB HID backend and resolved the inverted zones via the `has_per_key_rgb: true` note in `capabilities.rs`.
 
 ### [88F7] Bug Report — OMEN by HP Laptop 17-ck0xxx #168
 - **Description:** Keyboard lighting stays enabled after reboot even if the last action was to turn it off.
@@ -24,7 +24,7 @@ The following issues have been resolved and tested with the Omen Space 2.0 archi
 
 ### [8C77] Bug Report — OMEN by HP Gaming Laptop 16-wf1xxx #157 / #162
 - **Description:** Fan doesn't follow the custom curve and goes up to maximum RPM when CPU goes above 90°C.
-- **Status:** ✅ **Resolved.** Added a toggle option (config) to the Omen Space 2.0 UI so the thermal protection mechanism (95°C Max Fan) can be disabled if desired.
+- **Status:** ✅ **Resolved.** Added a toggle option (config) to the OMEN-HUB UI so the thermal protection mechanism (95°C Max Fan) can be disabled if desired.
 
 ### Add board 8D87 (OMEN MAX 16-ak0xxx, RTX 5080) #152
 - **Description:** Needs patched hp-wmi for gpu_tgp/gpu_ppab since stock in-tree hp-wmi on kernel 7.0+ doesn't expose them. Missing from capabilities DB and exception list.
@@ -50,7 +50,7 @@ The following issues have been resolved and tested with the Omen Space 2.0 archi
 
 ---
 
-## Active User Feedback / Open Issues (Omen Space 2.0)
+## Active User Feedback / Open Issues (OMEN-HUB)
 
 ### UI: Missing Application Icon
 - **Description:** The application's icon appears as a red cross on the desktop/dock.
@@ -61,5 +61,5 @@ The following issues have been resolved and tested with the Omen Space 2.0 archi
 - **Status:** ⚠️ **Open.** Needs UX improvements in the RGB adjustment menu to clarify global vs. per-key assignments.
 
 ### Feature Regression: System Tray Support
-- **Description:** Unlike `omenctl`, the new Omen Space interface doesn't minimize to the system tray on close.
+- **Description:** Unlike `omenctl`, the new OMEN-HUB interface doesn't minimize to the system tray on close.
 - **Status:** ⚠️ **Open.** Needs to be re-implemented or properly integrated with the existing `omen-tray` backend.

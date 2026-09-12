@@ -21,7 +21,7 @@ pub struct AutoUpdateService;
 impl AutoUpdateService {
     pub async fn check_for_updates() -> AppUpdateInfo {
         info!(
-            "Omen Space: Checking GitHub Releases for application updates (Current: v{})...",
+            "OMEN-HUB: Checking GitHub Releases for application updates (Current: v{})...",
             CURRENT_VERSION
         );
 
@@ -31,20 +31,20 @@ impl AutoUpdateService {
 
         let status_message = if update_available {
             format!(
-                "New Omen Space release '{}' available! (Current: v{})",
+                "New OMEN-HUB release '{}' available! (Current: v{})",
                 latest_tag, CURRENT_VERSION
             )
         } else {
-            format!("Omen Space is up to date (v{})", CURRENT_VERSION)
+            format!("OMEN-HUB is up to date (v{})", CURRENT_VERSION)
         };
 
-        info!("Omen Space Update Check: {}", status_message);
+        info!("OMEN-HUB Update Check: {}", status_message);
 
         if update_available {
             DesktopNotifier::send_notification(
-                "Omen Space Update Available",
+                "OMEN-HUB Update Available",
                 &format!(
-                    "A new release '{}' is available for Omen Space! Current version: v{}.",
+                    "A new release '{}' is available for OMEN-HUB! Current version: v{}.",
                     latest_tag, CURRENT_VERSION
                 ),
                 0,
@@ -64,7 +64,7 @@ impl AutoUpdateService {
     }
 
     pub async fn apply_update() -> String {
-        info!("Starting Omen Space application auto-update...");
+        info!("Starting OMEN-HUB application auto-update...");
         let info = Self::check_for_updates().await;
 
         if !info.update_available {
@@ -75,9 +75,9 @@ impl AutoUpdateService {
         }
 
         DesktopNotifier::send_notification(
-            "Omen Space Updating",
+            "OMEN-HUB Updating",
             &format!(
-                "Downloading and installing Omen Space {}...",
+                "Downloading and installing OMEN-HUB {}...",
                 info.latest_version
             ),
             0,
@@ -97,10 +97,8 @@ impl AutoUpdateService {
         let extract_dir = format!("{}/extracted", update_dir);
 
         // Security Check: Validate download URL scheme & host
-        if !info
-            .download_url
-            .starts_with("https://github.com/yunusemreyl/omen-space/")
-        {
+        let valid_prefix = format!("https://github.com/{}/", REPO_OWNER_NAME);
+        if !info.download_url.starts_with(&valid_prefix) {
             warn!("Blocked unsafe download URL: {}", info.download_url);
             let _ = tokio::fs::remove_dir_all(update_dir).await;
             return serde_json::json!({
@@ -185,13 +183,13 @@ impl AutoUpdateService {
                                 .output()
                                 .await;
                             info!(
-                                "Successfully updated Omen Space binary to {}",
+                                "Successfully updated OMEN-HUB binary to {}",
                                 info.latest_version
                             );
                             DesktopNotifier::send_notification(
-                                "Omen Space Updated!",
+                                "OMEN-HUB Updated!",
                                 &format!(
-                                    "Omen Space has been successfully updated to {}!",
+                                    "OMEN-HUB has been successfully updated to {}!",
                                     info.latest_version
                                 ),
                                 0,
@@ -240,7 +238,7 @@ async fn fetch_latest_github_release() -> (String, String, String, String) {
             "--tlsv1.2",
             "-s",
             "-H",
-            "User-Agent: OmenSpace-Daemon",
+            "User-Agent: OMEN-HUB-Daemon",
             &api_url,
         ])
         .output()
@@ -255,9 +253,10 @@ async fn fetch_latest_github_release() -> (String, String, String, String) {
                 .as_str()
                 .unwrap_or("Release notes unavailable")
                 .to_string();
+            let default_release_url = format!("https://github.com/{}/releases", REPO_OWNER_NAME);
             let html_url = v["html_url"]
                 .as_str()
-                .unwrap_or("https://github.com/yunusemreyl/omen-space/releases")
+                .unwrap_or(&default_release_url)
                 .to_string();
 
             let mut download_url = format!(
@@ -278,7 +277,7 @@ async fn fetch_latest_github_release() -> (String, String, String, String) {
     (
         format!("v{}", CURRENT_VERSION),
         "No update release metadata found".to_string(),
-        "https://github.com/yunusemreyl/omen-space/releases".to_string(),
+        format!("https://github.com/{}/releases", REPO_OWNER_NAME),
         format!("https://github.com/{}/releases", REPO_OWNER_NAME),
     )
 }

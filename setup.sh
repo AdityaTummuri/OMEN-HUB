@@ -90,7 +90,7 @@ check_conflicting_power_managers() {
         echo "   • $PKG"
     done
     echo ""
-    echo "   OMENSpace relies on power-profiles-daemon for thermal profile integration."
+    echo "   OMEN-HUB relies on power-profiles-daemon for thermal profile integration."
     echo "   Your package manager may automatically remove the above package(s) when"
     echo "   power-profiles-daemon is installed as a dependency."
     echo ""
@@ -164,7 +164,7 @@ remove_legacy_omenctl() {
 
 do_build() {
     echo "====================================="
-    echo " Building OMENSpace (Daemon, CLI, GUI, Tray)"
+    echo " Building OMEN-HUB (Daemon, CLI, GUI, Tray)"
     echo "====================================="
     export CARGO_HOME=/root/.cargo
     export RUSTUP_HOME=/root/.rustup
@@ -259,8 +259,8 @@ do_install() {
 
     cat <<EOF > /etc/xdg/autostart/omenspace-tray.desktop
 [Desktop Entry]
-Name=OMEN SPACE Tray
-Comment=OMENSpace System Tray Icon
+Name=OMEN-HUB Tray
+Comment=OMEN-HUB System Tray Icon
 Exec=/usr/bin/omen-tray
 Icon=omenspace
 Terminal=false
@@ -322,7 +322,7 @@ EOF
 
 do_uninstall() {
     echo "====================================="
-    echo " Uninstalling OMENSpace..."
+    echo " Uninstalling OMEN-HUB..."
     echo "====================================="
     systemctl stop omen-space-daemon.service 2>/dev/null || true
     killall omen-tray 2>/dev/null || true
@@ -367,7 +367,7 @@ do_uninstall() {
 
 do_update() {
     echo "====================================="
-    echo " Updating OMENSpace..."
+    echo " Updating OMEN-HUB..."
     echo "====================================="
     if [ -d ".git" ]; then
         git pull || echo "Warning: Failed to pull latest changes. Building current version..."
@@ -400,9 +400,9 @@ case "$COMMAND" in
         ;;
     *)
         echo "Usage: sudo ./setup.sh [install|update|uninstall]"
-        echo "  install   : Builds and installs OMENSpace (cleans legacy omenctl)"
+        echo "  install   : Builds and installs OMEN-HUB (cleans legacy omenctl)"
         echo "  update    : Pulls latest git changes, builds, and reinstalls"
-        echo "  uninstall : Completely removes OMENSpace from the system"
+        echo "  uninstall : Completely removes OMEN-HUB from the system"
         exit 1
         ;;
 esac

@@ -8,7 +8,7 @@ mod i18n;
 
 #[derive(Parser, Debug)]
 #[command(name = "omen-cli")]
-#[command(about = "Fastfetch-style CLI for Omen Space Daemon", long_about = None)]
+#[command(about = "Fastfetch-style CLI for OMEN-HUB Daemon", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,

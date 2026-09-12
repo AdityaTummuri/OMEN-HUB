@@ -106,7 +106,7 @@ impl ksni::Tray for Tray {
     }
 
     fn title(&self) -> String {
-        "OMEN SPACE".into()
+        "OMEN-HUB".into()
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
@@ -125,7 +125,7 @@ impl ksni::Tray for Tray {
             _ => t("tt_gpu_hybrid"),
         };
         ksni::ToolTip {
-            title: "OMEN Space".into(),
+            title: "OMEN-HUB".into(),
             description: format!(
                 "{}: {}\n{}: {}\n{}: {}",
                 t("tt_power"),
@@ -415,7 +415,7 @@ async fn set_gpu_mode(mode: &str) {
                     info!("GPU modu ayarlandı ({}) -> {}", mode, resp);
                     if resp.contains("REBOOT") {
                         let _ = Command::new("notify-send")
-                            .arg("OMEN Space")
+                            .arg("OMEN-HUB")
                             .arg("GPU modunun etkin olması için sistemi yeniden başlatmanız gerekiyor.")
                             .arg("-i")
                             .arg("dialog-warning")

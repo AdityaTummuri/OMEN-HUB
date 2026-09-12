@@ -6,7 +6,7 @@ pkgname=${_pkgbase}-dkms
 pkgver=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf)
 pkgrel=1
 pkgdesc="DKMS driver for HP Omen/Victus laptops (fan control and extra features)"
-url="https://github.com/yunusemreyl/omen-space"
+url="https://github.com/AdityaTummuri/OMEN-HUB"
 license=("GPL")
 arch=('x86_64')
 depends=('glibc' 'dkms')

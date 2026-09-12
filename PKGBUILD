@@ -1,18 +1,18 @@
 # Maintainer: Yunus Emre YILMAZ <yunusemreyl>
 
 pkgname=omen-space-git
-_pkgname=Omen-Space
+_pkgname=OMEN-HUB
 pkgver=2.0.3
 pkgrel=1
 pkgdesc="Advanced HP Omen/Victus laptop manager for Linux with RGB, Fan, and MUX control"
 arch=('x86_64')
-url="https://github.com/yunusemreyl/omen-space"
+url="https://github.com/AdityaTummuri/OMEN-HUB"
 license=('GPL')
 depends=('dkms' 'polkit' 'gtk4' 'libadwaita')
 makedepends=('git' 'gcc' 'make' 'pkg-config' 'rust')
 provides=('omen-space')
 conflicts=('omen-space' 'hp-laptop-manager' 'omenctl')
-source=('git+https://github.com/yunusemreyl/omen-space.git')
+source=('git+https://github.com/AdityaTummuri/OMEN-HUB.git')
 sha256sums=('SKIP')
 
 pkgver() {
@@ -65,8 +65,8 @@ package() {
   # Autostart tray
   cat <<EOF > "$pkgdir/etc/xdg/autostart/omenspace-tray.desktop"
 [Desktop Entry]
-Name=OMENSpace Tray
-Comment=OMENSpace System Tray Icon
+Name=OMEN-HUB Tray
+Comment=OMEN-HUB System Tray Icon
 Exec=/usr/bin/omen-tray
 Icon=omenspace
 Terminal=false
