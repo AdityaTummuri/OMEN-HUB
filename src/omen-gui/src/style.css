@@ -42,16 +42,25 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Ubuntu', sans-serif;
 }
 
+/* ── Application Background ───────────────────────────────── */
 window,
-.background {
-    background-color: @window_bg_color;
-    color: @window_fg_color;
+window.background,
+.background,
+toolbarview,
+toolbarview > .content,
+scrolledwindow,
+scrolledwindow > viewport,
+stack {
+    background-color: #0B0D0F !important;
+    color: #F2F3F4;
 }
 
-headerbar {
-    background-color: @headerbar_bg_color;
-    border-bottom: 1px solid #292E34;
-    box-shadow: none;
+headerbar,
+headerbar.flat,
+headerbar:backdrop {
+    background-color: #0B0D0F !important;
+    border-bottom: 1px solid #292E34 !important;
+    box-shadow: none !important;
     min-height: 48px;
 }
 
@@ -62,40 +71,52 @@ headerbar .title {
     color: #F2F3F4;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────── */
-.navigation-sidebar,
-navigation-split-view > sidebar,
-overlay-split-view > sidebar,
+/* ── Sidebar & Navigation Hierarchy ───────────────────────── */
 .os-sidebar-box {
-    background-color: #0B0D0F;
-    border-right: 1px solid #292E34;
+    background-color: #0B0D0F !important;
+    border-right: 1px solid #292E34 !important;
     transition: min-width 200ms cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+list.navigation-sidebar,
+.navigation-sidebar {
+    background-color: #0B0D0F !important;
+}
+
+list.navigation-sidebar > row,
 .navigation-sidebar > row {
+    background-color: transparent;
     border-radius: 8px;
-    margin: 2px 8px;
-    padding: 1px 2px;
+    margin: 3px 8px;
+    padding: 2px 4px;
     color: #9DA4AC;
     border: 1px solid transparent;
     transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
+list.navigation-sidebar > row:hover,
 .navigation-sidebar > row:hover {
     background-color: rgba(255, 255, 255, 0.04);
     color: #F2F3F4;
 }
 
-.navigation-sidebar > row:selected {
-    background-color: #181C20;
-    color: #F2F3F4;
-    border: 1px solid #292E34;
-    border-left: 3px solid #D9573F;
+list.navigation-sidebar > row:selected,
+.navigation-sidebar > row:selected,
+list.navigation-sidebar > row.activatable:selected,
+list.navigation-sidebar > row:selected:hover,
+.navigation-sidebar > row:selected:hover {
+    background-color: #181C20 !important;
+    color: #F2F3F4 !important;
+    border: 1px solid #292E34 !important;
+    border-left: 4px solid #D9573F !important;
+    border-radius: 6px !important;
 }
 
-.navigation-sidebar > row:selected:hover {
-    background-color: #181C20;
-    color: #F2F3F4;
+list.navigation-sidebar > row:selected image,
+.navigation-sidebar > row:selected image,
+list.navigation-sidebar > row:hover image,
+.navigation-sidebar > row:hover image {
+    color: #D9573F !important;
 }
 
 /* ── Typography Scale ─────────────────────────────────────── */
@@ -133,14 +154,25 @@ overlay-split-view > sidebar,
     font-weight: 500;
 }
 
-/* ── Base Cards ───────────────────────────────────────────── */
-.os-card {
-    background-color: #121518;
-    background-image: none;
-    border: 1px solid #292E34;
+/* ── Base Cards & Preferences Lists ───────────────────────── */
+.os-card,
+.spec-card,
+.os-monitor-card,
+.app-profile-card,
+.kb-card {
+    background-color: #121518 !important;
+    background-image: none !important;
+    border: 1px solid #292E34 !important;
     border-radius: 12px;
-    padding: 18px;
+    padding: 16px 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.os-card:hover,
+.spec-card:hover,
+.os-monitor-card:hover,
+.app-profile-card:hover {
+    border-color: #3E4650 !important;
 }
 
 .os-card-header {
@@ -151,11 +183,32 @@ overlay-split-view > sidebar,
     text-transform: uppercase;
 }
 
+/* Libadwaita PreferencesGroup Boxed List */
+list.boxed-list,
+.boxed-list {
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
+    border-radius: 12px;
+}
+
+list.boxed-list > row,
+.boxed-list > row {
+    background-color: transparent !important;
+    border-bottom: 1px solid #1E2328;
+    color: #F2F3F4;
+}
+
+list.boxed-list > row:last-child,
+.boxed-list > row:last-child {
+    border-bottom: none;
+}
+
 /* ── Performance Mode Chip Cards ──────────────────────────── */
+button.chip-card,
 .chip-card {
-    background-color: #121518;
-    background-image: none;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    background-image: none !important;
+    border: 1px solid #292E34 !important;
     border-radius: 10px;
     padding: 14px 18px;
     min-height: 60px;
@@ -164,22 +217,23 @@ overlay-split-view > sidebar,
     outline: none;
 }
 
+button.chip-card:hover,
 .chip-card:hover {
-    background-color: #181C20;
-    background-image: none;
-    border: 1px solid #3E4650;
+    background-color: #181C20 !important;
+    border-color: #3E4650 !important;
 }
 
+button.chip-card:checked,
 .chip-card:checked {
-    background-color: #181C20;
-    background-image: none;
-    border: 1.5px solid #D9573F;
-    box-shadow: inset 0 0 0 1px rgba(217, 87, 63, 0.25);
+    background-color: #181C20 !important;
+    border: 1.5px solid #D9573F !important;
+    box-shadow: inset 0 0 0 1px rgba(217, 87, 63, 0.35) !important;
 }
 
+button.chip-card:checked:hover,
 .chip-card:checked:hover {
-    background-color: #181C20;
-    border: 1.5px solid #E66A51;
+    background-color: #181C20 !important;
+    border: 1.5px solid #E66A51 !important;
 }
 
 .chip-title {
@@ -189,6 +243,7 @@ overlay-split-view > sidebar,
     letter-spacing: -0.1px;
 }
 
+button.chip-card:checked .chip-title,
 .chip-card:checked .chip-title {
     color: #F2F3F4;
     font-weight: 700;
@@ -200,15 +255,17 @@ overlay-split-view > sidebar,
     font-weight: 400;
 }
 
+button.chip-card:checked .chip-sub,
 .chip-card:checked .chip-sub {
     color: #C1C7CD;
 }
 
 /* ── Fan Mode Chip Cards ──────────────────────────────────── */
+button.fan-chip-card,
 .fan-chip-card {
-    background-color: #121518;
-    background-image: none;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    background-image: none !important;
+    border: 1px solid #292E34 !important;
     border-radius: 8px;
     padding: 8px 14px;
     min-height: 40px;
@@ -217,17 +274,17 @@ overlay-split-view > sidebar,
     outline: none;
 }
 
+button.fan-chip-card:hover,
 .fan-chip-card:hover {
-    background-color: #181C20;
-    background-image: none;
-    border: 1px solid #3E4650;
+    background-color: #181C20 !important;
+    border-color: #3E4650 !important;
 }
 
+button.fan-chip-card:checked,
 .fan-chip-card:checked {
-    background-color: #181C20;
-    background-image: none;
-    border: 1.5px solid #D9573F;
-    box-shadow: inset 0 0 0 1px rgba(217, 87, 63, 0.25);
+    background-color: #181C20 !important;
+    border: 1.5px solid #D9573F !important;
+    box-shadow: inset 0 0 0 1px rgba(217, 87, 63, 0.35) !important;
 }
 
 .fan-chip-title {
@@ -242,11 +299,13 @@ overlay-split-view > sidebar,
     font-weight: 400;
 }
 
+button.fan-chip-card:checked .fan-chip-title,
 .fan-chip-card:checked .fan-chip-title {
     color: #F2F3F4;
     font-weight: 700;
 }
 
+button.fan-chip-card:checked .fan-chip-sub,
 .fan-chip-card:checked .fan-chip-sub {
     color: #C1C7CD;
 }
@@ -337,8 +396,8 @@ overlay-split-view > sidebar,
 
 /* ── Monitoring Cards ─────────────────────────────────────── */
 .os-monitor-card {
-    background-color: #121518;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
     border-radius: 12px;
     padding: 14px 18px;
 }
@@ -385,32 +444,32 @@ overlay-split-view > sidebar,
 
 /* ── Restrained Telemetry Progress Bars ───────────────────── */
 progressbar.os-prog-cpu > trough > progress {
-    background-color: #D9573F;
+    background-color: #D9573F !important;
     min-height: 4px;
     border-radius: 2px;
 }
 
 progressbar.os-prog-gpu > trough > progress {
-    background-color: #C9A24E;
+    background-color: #C9A24E !important;
     min-height: 4px;
     border-radius: 2px;
 }
 
 progressbar.os-prog-ram > trough > progress {
-    background-color: #6C7684;
+    background-color: #6C7684 !important;
     min-height: 4px;
     border-radius: 2px;
 }
 
 progressbar.os-prog-disk > trough > progress {
-    background-color: #505A66;
+    background-color: #505A66 !important;
     min-height: 4px;
     border-radius: 2px;
 }
 
 progressbar > trough {
-    background-color: #181C20;
-    border: 1px solid #292E34;
+    background-color: #181C20 !important;
+    border: 1px solid #292E34 !important;
     min-height: 4px;
     min-width: 10px;
     border-radius: 2px;
@@ -418,8 +477,8 @@ progressbar > trough {
 
 /* ── Device Spec Header Card ──────────────────────────────── */
 .spec-card {
-    background-color: #121518;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
     border-radius: 12px;
     padding: 14px 18px;
 }
@@ -446,16 +505,16 @@ progressbar > trough {
 
 /* ── App Profile Cards ────────────────────────────────────── */
 .app-profile-card {
-    background-color: #121518;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
     border-radius: 10px;
     padding: 12px 16px;
     transition: all 120ms ease;
 }
 
 .app-profile-card:hover {
-    background-color: #181C20;
-    border-color: #3E4650;
+    background-color: #181C20 !important;
+    border-color: #3E4650 !important;
 }
 
 .app-name-label {
@@ -481,53 +540,35 @@ progressbar > trough {
     font-size: 11px;
 }
 
-preferencesgroup > box {
-    background-color: #121518;
-    border: 1px solid #292E34;
-    border-radius: 12px;
-}
-
-preferencesgroup list {
-    background-color: transparent;
-}
-
-preferencesgroup list > row {
-    border-bottom: 1px solid #1E2328;
-}
-
-preferencesgroup list > row:last-child {
-    border-bottom: none;
-}
-
 /* ── Restrained Status Badges ─────────────────────────────── */
 .badge-ok {
-    background-color: rgba(78, 170, 120, 0.12);
-    border: 1px solid rgba(78, 170, 120, 0.28);
+    background-color: rgba(78, 170, 120, 0.12) !important;
+    border: 1px solid rgba(78, 170, 120, 0.28) !important;
     border-radius: 6px;
     padding: 2px 8px;
-    color: #4EAA78;
+    color: #4EAA78 !important;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
 }
 
 .badge-warn {
-    background-color: rgba(201, 162, 78, 0.12);
-    border: 1px solid rgba(201, 162, 78, 0.28);
+    background-color: rgba(201, 162, 78, 0.12) !important;
+    border: 1px solid rgba(201, 162, 78, 0.28) !important;
     border-radius: 6px;
     padding: 2px 8px;
-    color: #C9A24E;
+    color: #C9A24E !important;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
 }
 
 .badge-err {
-    background-color: rgba(217, 87, 63, 0.12);
-    border: 1px solid rgba(217, 87, 63, 0.28);
+    background-color: rgba(217, 87, 63, 0.12) !important;
+    border: 1px solid rgba(217, 87, 63, 0.28) !important;
     border-radius: 6px;
     padding: 2px 8px;
-    color: #D9573F;
+    color: #D9573F !important;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -535,21 +576,21 @@ preferencesgroup list > row:last-child {
 
 /* ── Standard / Action Buttons ────────────────────────────── */
 button.suggested-action {
-    background-color: #D9573F;
-    color: #F2F3F4;
-    border: none;
+    background-color: #D9573F !important;
+    color: #F2F3F4 !important;
+    border: 1px solid transparent !important;
     border-radius: 6px;
     font-weight: 600;
-    padding: 6px 14px;
+    padding: 6px 16px;
     transition: background-color 120ms ease;
 }
 
 button.suggested-action:hover {
-    background-color: #E66A51;
+    background-color: #E66A51 !important;
 }
 
 button.suggested-action:active {
-    background-color: #BF452E;
+    background-color: #BF452E !important;
 }
 
 button.suggested-action:disabled {
@@ -557,15 +598,15 @@ button.suggested-action:disabled {
 }
 
 button.destructive-action {
-    background-color: rgba(217, 87, 63, 0.15);
-    border: 1px solid rgba(217, 87, 63, 0.35);
-    color: #D9573F;
+    background-color: rgba(217, 87, 63, 0.15) !important;
+    border: 1px solid rgba(217, 87, 63, 0.35) !important;
+    color: #D9573F !important;
     border-radius: 6px;
     transition: background-color 120ms ease;
 }
 
 button.destructive-action:hover {
-    background-color: rgba(217, 87, 63, 0.25);
+    background-color: rgba(217, 87, 63, 0.25) !important;
 }
 
 button:not(.suggested-action):not(.destructive-action):not(.chip-card):not(.fan-chip-card):not(.curve-pill-btn):not(.kb-key):not(.circular) {
@@ -593,8 +634,8 @@ switch {
 }
 
 switch:checked {
-    background-color: #D9573F;
-    border-color: #D9573F;
+    background-color: #D9573F !important;
+    border-color: #D9573F !important;
 }
 
 switch > slider {
@@ -607,15 +648,15 @@ switch > slider {
 
 /* ── Separators ───────────────────────────────────────────── */
 separator {
-    background-color: #292E34;
+    background-color: #292E34 !important;
     min-height: 1px;
     min-width: 1px;
 }
 
 /* ── Keyboard RGB ─────────────────────────────────────────── */
 .kb-card {
-    background-color: #121518;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
     border-radius: 12px;
     padding: 18px;
 }
@@ -660,8 +701,8 @@ separator {
 
 /* ── Monospace / Log Card ─────────────────────────────────── */
 .os-log-card {
-    background-color: #0B0D0F;
-    border: 1px solid #292E34;
+    background-color: #0B0D0F !important;
+    border: 1px solid #292E34 !important;
     border-radius: 8px;
     padding: 14px;
 }
@@ -680,22 +721,22 @@ separator {
 
 /* ── Popover ──────────────────────────────────────────────── */
 popover > contents {
-    background-color: #181C20;
+    background-color: #181C20 !important;
     color: #F2F3F4;
-    border: 1px solid #292E34;
+    border: 1px solid #292E34 !important;
     border-radius: 10px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Legacy compatibility shims ──────────────────────────── */
 .os-profile-card {
-    background-color: #121518;
-    border: 1px solid #292E34;
+    background-color: #121518 !important;
+    border: 1px solid #292E34 !important;
     border-radius: 10px;
     padding: 10px 14px;
 }
-.os-profile-card:hover  { background-color: #181C20; border-color: #3E4650; }
-.os-profile-card:checked { background-color: #181C20; border: 1.5px solid #D9573F; }
+.os-profile-card:hover  { background-color: #181C20 !important; border-color: #3E4650 !important; }
+.os-profile-card:checked { background-color: #181C20 !important; border: 1.5px solid #D9573F !important; }
 .os-profile-title { color: #F2F3F4; font-size: 13px; font-weight: 600; }
 .os-profile-sub   { color: #9DA4AC; font-size: 10px; }
 .os-profile-tag   { color: #9DA4AC; font-size: 10px; }
