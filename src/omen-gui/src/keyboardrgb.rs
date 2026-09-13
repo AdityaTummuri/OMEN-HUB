@@ -674,7 +674,7 @@ fn build_interactive_keyboard(
                 mode_cb_local(current_mode);
                 crate::daemon_client::set_color_sync(3, hex.clone());
                 let map = b_map_local.borrow();
-                for (k, _) in map.iter() {
+                for k in map.keys() {
                     if crate::keyboardrgb::get_zone_for_key(k) == 4 {
                         kc_local.borrow_mut().insert(k.clone(), hex.clone());
                     }
@@ -760,7 +760,7 @@ fn build_interactive_keyboard(
                         KeyboardMode::Victus1Zone => {
                             zc_local.borrow_mut()[0] = hex.clone();
                             let map = b_map_local.borrow();
-                            for (k, _) in map.iter() {
+                            for k in map.keys() {
                                 kc_local.borrow_mut().insert(k.clone(), hex.clone());
                             }
                             crate::daemon_client::set_color_sync(8, hex.clone());
@@ -772,7 +772,7 @@ fn build_interactive_keyboard(
                                 zc_local.borrow_mut()[zone_idx] = hex.clone();
                             }
                             let map = b_map_local.borrow();
-                            for (k, _) in map.iter() {
+                            for k in map.keys() {
                                 if get_zone_for_key(k) == target_zone {
                                     kc_local.borrow_mut().insert(k.clone(), hex.clone());
                                 }
@@ -826,7 +826,7 @@ fn build_interactive_keyboard(
             }
             "cycle" => {
                 css.push_str("@keyframes kb_cycle { 0% { background: #ff0000; } 16% { background: #ffff00; } 33% { background: #00ff00; } 50% { background: #00ffff; } 66% { background: #0000ff; } 83% { background: #ff00ff; } 100% { background: #ff0000; } }\n");
-                for (_, btn) in b_map_anim.borrow().iter() {
+                for btn in b_map_anim.borrow().values() {
                     css.push_str(&format!(
                         "#{} {{ animation: kb_cycle {:.1}s infinite linear; opacity: 1.0; }}\n",
                         btn.widget_name(),

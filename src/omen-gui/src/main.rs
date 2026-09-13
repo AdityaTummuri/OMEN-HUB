@@ -23,7 +23,7 @@ const APP_ID: &str = "org.hp.OmenSpace";
 fn ensure_tray_running() {
     let is_running = std::process::Command::new("pgrep")
         .arg("-x")
-        .arg("omen-tray")
+        .arg("omen-hub-tray")
         .output()
         .map(|o| o.status.success() && !o.stdout.is_empty())
         .unwrap_or(false);
@@ -31,7 +31,7 @@ fn ensure_tray_running() {
     if !is_running {
         let spawned = std::env::current_exe()
             .ok()
-            .and_then(|p| p.parent().map(|dir| dir.join("omen-tray")))
+            .and_then(|p| p.parent().map(|dir| dir.join("omen-hub-tray")))
             .and_then(|tray_path| {
                 if tray_path.exists() {
                     std::process::Command::new(tray_path)
@@ -46,13 +46,13 @@ fn ensure_tray_running() {
             });
 
         if spawned.is_none() {
-            let _ = std::process::Command::new("omen-tray")
+            let _ = std::process::Command::new("omen-hub-tray")
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .spawn()
                 .or_else(|_| {
-                    std::process::Command::new("/usr/bin/omen-tray")
+                    std::process::Command::new("/usr/bin/omen-hub-tray")
                         .stdin(std::process::Stdio::null())
                         .stdout(std::process::Stdio::null())
                         .stderr(std::process::Stdio::null())
