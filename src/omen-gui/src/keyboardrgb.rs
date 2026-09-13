@@ -81,23 +81,23 @@ pub fn show_color_picker_popover(parent: &gtk::Button, on_color_selected: Rc<dyn
         .margin_end(6)
         .build();
 
-    // Palette: Red, Green, Blue, Purple, Turquoise, Pink, White
+    // Curated harmonious palette with OMEN brand accents
     let palette = [
-        "#FF0000", "#00FF00", "#0000FF", "#800080", "#40E0D0", "#FFC0CB", "#FFFFFF",
+        "#D9573F", "#E66A51", "#C9A24E", "#4EAA78", "#3B82F6", "#8B5CF6", "#FFFFFF",
     ];
     let palette_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .spacing(4)
+        .spacing(6)
         .build();
     for hex in palette {
         let btn = gtk::Button::builder()
-            .width_request(24)
-            .height_request(24)
+            .width_request(22)
+            .height_request(22)
             .build();
         btn.add_css_class("circular");
         let provider = gtk::CssProvider::new();
         provider.load_from_string(&format!(
-            "button {{ background: {}; min-width: 24px; min-height: 24px; padding: 0; }}",
+            "button {{ background: {}; min-width: 22px; min-height: 22px; padding: 0; border: 1px solid #292E34; border-radius: 11px; }}",
             hex
         ));
         btn.style_context()

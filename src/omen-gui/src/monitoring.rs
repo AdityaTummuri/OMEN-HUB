@@ -630,7 +630,7 @@ pub fn build_page(is_general: bool) -> gtk::Box {
             h,
             &cpu_hist_c.borrow(),
             cpu_max_watt,
-            (0.88, 0.20, 0.33),
+            (0.851, 0.341, 0.247), // #D9573F OMEN Red-Orange
         );
     });
 
@@ -642,7 +642,7 @@ pub fn build_page(is_general: bool) -> gtk::Box {
             h,
             &gpu_hist_c.borrow(),
             gpu_max_watt,
-            (0.0, 0.60, 0.93),
+            (0.788, 0.635, 0.306), // #C9A24E Gold Accent
         );
     });
 
@@ -767,9 +767,9 @@ fn draw_sparkline(
     cr.paint().expect("Invalid cairo surface");
     cr.set_operator(gtk::cairo::Operator::Over);
 
-    // Grid lines at 25%, 50%, 75%
+    // Grid lines at 25%, 50%, 75% (#292E34 subtle border grid)
     cr.set_line_width(0.5);
-    cr.set_source_rgba(0.14, 0.14, 0.14, 1.0);
+    cr.set_source_rgba(0.161, 0.180, 0.204, 1.0);
     for p in [0.25, 0.5, 0.75] {
         let y = h as f64 * (1.0 - p);
         cr.move_to(0.0, y);
@@ -777,19 +777,19 @@ fn draw_sparkline(
         let _ = cr.stroke();
     }
 
-    // Fill
+    // Fill (subtle 8% opacity)
     cr.move_to(0.0, h as f64);
-    for i in 0..n {
-        let yv = (hist[i].0 / max_val).clamp(0.0, 1.0);
+    for (i, item) in hist.iter().enumerate().take(n) {
+        let yv = (item.0 / max_val).clamp(0.0, 1.0);
         cr.line_to(i as f64 * step, h as f64 - yv * h as f64);
     }
     cr.line_to(w as f64, h as f64);
     cr.close_path();
-    cr.set_source_rgba(r, g, b, 0.12);
+    cr.set_source_rgba(r, g, b, 0.08);
     let _ = cr.fill();
 
     // Line (conditional color)
-    cr.set_line_width(2.0);
+    cr.set_line_width(1.8);
     for i in 1..n {
         let prev_y = (hist[i - 1].0 / max_val).clamp(0.0, 1.0);
         let curr_y = (hist[i].0 / max_val).clamp(0.0, 1.0);
@@ -799,29 +799,29 @@ fn draw_sparkline(
         cr.line_to(i as f64 * step, h as f64 - curr_y * h as f64);
 
         if is_throttled {
-            cr.set_source_rgba(0.95, 0.77, 0.06, 1.0); // Yellow warning line
+            cr.set_source_rgba(0.788, 0.635, 0.306, 1.0); // #C9A24E warning line
         } else {
             cr.set_source_rgba(r, g, b, 1.0); // Normal color
         }
         let _ = cr.stroke();
     }
 
-    // Scale label (Max value)
+    // Scale label (Max value) in secondary text color #9DA4AC
     cr.select_font_face(
         "Sans",
         gtk::cairo::FontSlant::Normal,
         gtk::cairo::FontWeight::Normal,
     );
     cr.set_font_size(9.0);
-    cr.set_source_rgba(0.32, 0.32, 0.32, 1.0);
+    cr.set_source_rgba(0.616, 0.643, 0.675, 1.0);
     cr.move_to(4.0, 10.0);
     let _ = cr.show_text(&format!("{:.0}W", max_val));
 
-    // Dynamic endpoint value label
+    // Dynamic endpoint value label in primary text color #F2F3F4
     let last_val = hist[n - 1].0;
     let end_y = h as f64 - (last_val / max_val).clamp(0.0, 1.0) * h as f64;
     cr.set_font_size(11.0);
-    cr.set_source_rgba(1.0, 1.0, 1.0, 0.9);
+    cr.set_source_rgba(0.949, 0.953, 0.957, 1.0);
 
     // Draw text a bit to the left of the very right edge so it doesn't clip
     cr.move_to(w as f64 - 38.0, end_y - 6.0);
@@ -830,7 +830,7 @@ fn draw_sparkline(
     // Draw endpoint dot
     cr.arc(w as f64, end_y, 3.0, 0.0, 2.0 * std::f64::consts::PI);
     if hist[n - 1].1 {
-        cr.set_source_rgba(0.95, 0.77, 0.06, 1.0);
+        cr.set_source_rgba(0.788, 0.635, 0.306, 1.0);
     } else {
         cr.set_source_rgba(r, g, b, 1.0);
     }

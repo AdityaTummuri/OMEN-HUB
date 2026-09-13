@@ -58,7 +58,7 @@ pub fn show_fan_curve_editor(
     let d_pts = pts.clone();
     da.set_draw_func(move |_, cr, w, h| {
         let pts = d_pts.borrow();
-        let (r, g, b) = (1.0, 0.25, 0.4);
+        let (r, g, b) = (0.851, 0.341, 0.247); // #D9573F OMEN Red-Orange
 
         let pad = 36.0_f64;
         let aw = w as f64 - 2.0 * pad;
@@ -76,7 +76,7 @@ pub fn show_fan_curve_editor(
         cr.set_operator(gtk::cairo::Operator::Over);
 
         cr.set_line_width(0.5);
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.15);
+        cr.set_source_rgba(0.161, 0.180, 0.204, 1.0); // #292E34 grid lines
         for i in 1..=4 {
             let x = pad + aw * i as f64 / 4.0;
             cr.move_to(x, pad);
@@ -88,7 +88,7 @@ pub fn show_fan_curve_editor(
             let _ = cr.stroke();
         }
 
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.3);
+        cr.set_source_rgba(0.161, 0.180, 0.204, 1.0);
         cr.set_line_width(1.0);
         cr.rectangle(pad, pad, aw, ah);
         let _ = cr.stroke();
@@ -99,7 +99,7 @@ pub fn show_fan_curve_editor(
             gtk::cairo::FontWeight::Normal,
         );
         cr.set_font_size(9.0);
-        cr.set_source_rgba(0.5, 0.5, 0.5, 1.0);
+        cr.set_source_rgba(0.616, 0.643, 0.675, 1.0); // #9DA4AC
         for (i, temp) in [40, 55, 70, 85, 100].iter().enumerate() {
             let x = pad + aw * i as f64 / 4.0;
             cr.move_to(x - 8.0, pad + ah + 14.0);
@@ -138,11 +138,11 @@ pub fn show_fan_curve_editor(
             cr.line_to(xl, pad + ah);
         }
         cr.close_path();
-        cr.set_source_rgba(r, g, b, 0.10);
+        cr.set_source_rgba(r, g, b, 0.08);
         let _ = cr.fill();
 
         cr.set_source_rgba(r, g, b, 1.0);
-        cr.set_line_width(2.5);
+        cr.set_line_width(2.0);
         let (x0, y0) = to_canvas(pts[0].0, pts[0].1);
         cr.move_to(x0, y0);
         for p in pts.iter().skip(1) {
@@ -151,10 +151,10 @@ pub fn show_fan_curve_editor(
         }
         let _ = cr.stroke();
 
-        cr.set_source_rgba(1.0, 1.0, 1.0, 1.0);
+        cr.set_source_rgba(0.949, 0.953, 0.957, 1.0); // #F2F3F4 point fill
         for p in pts.iter() {
             let (x, y) = to_canvas(p.0, p.1);
-            cr.arc(x, y, 4.0, 0.0, 2.0 * std::f64::consts::PI);
+            cr.arc(x, y, 3.5, 0.0, 2.0 * std::f64::consts::PI);
             let _ = cr.fill();
         }
     });

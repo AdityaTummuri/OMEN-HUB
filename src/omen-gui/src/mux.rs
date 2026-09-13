@@ -85,7 +85,7 @@ pub fn build_page() -> gtk::Box {
         .build();
 
     let drv_version = get_nvidia_driver_version();
-    let (disp_info, is_discrete_active, gpu_name, igpu_name) = detect_active_display_gpu();
+    let (disp_info, is_discrete_active, _gpu_name, _igpu_name) = detect_active_display_gpu();
 
     // ── Header ───────────────────────────────────────────────
     let hdr = gtk::Box::builder()
@@ -257,40 +257,49 @@ pub fn build_page() -> gtk::Box {
     // Wire MUX toggles to daemon
     let w_c = warn_card.clone();
     let d_val = disp_val.clone();
-    let gpu_n1 = gpu_name.clone();
+    let disp_base1 = disp_info.clone();
     btn_discrete.connect_toggled(move |btn| {
         if btn.is_active() {
             crate::daemon_client::set_gpu_mode_sync("discrete".to_string());
             if !is_discrete_active {
                 w_c.set_visible(true);
+                d_val.set_label(&format!("{} (Pending: Discrete)", disp_base1));
+                d_val.set_css_classes(&["badge-warn"]);
+            } else {
+                w_c.set_visible(false);
+                d_val.set_label(&disp_base1);
+                d_val.set_css_classes(&["badge-warn"]);
             }
-            d_val.set_label(&format!("eDP-1 → {} (Discrete)", gpu_n1));
-            d_val.set_css_classes(&["badge-warn"]);
         }
     });
 
     let w_c2 = warn_card.clone();
     let d_val2 = disp_val.clone();
-    let igpu_n1 = igpu_name.clone();
+    let disp_base2 = disp_info.clone();
     btn_hybrid.connect_toggled(move |btn| {
         if btn.is_active() {
             crate::daemon_client::set_gpu_mode_sync("hybrid".to_string());
             if is_discrete_active {
                 w_c2.set_visible(true);
+                d_val2.set_label(&format!("{} (Pending: Hybrid)", disp_base2));
+                d_val2.set_css_classes(&["badge-warn"]);
+            } else {
+                w_c2.set_visible(false);
+                d_val2.set_label(&disp_base2);
+                d_val2.set_css_classes(&["badge-ok"]);
             }
-            d_val2.set_label(&format!("eDP-1 → {} (Hybrid)", igpu_n1));
-            d_val2.set_css_classes(&["badge-ok"]);
         }
     });
 
     let w_c3 = warn_card.clone();
     let d_val3 = disp_val.clone();
+    let disp_base3 = disp_info.clone();
     btn_advanced.connect_toggled(move |btn| {
         if btn.is_active() {
             crate::daemon_client::set_gpu_mode_sync("advanced".to_string());
             w_c3.set_visible(true);
-            d_val3.set_label(&format!("eDP-1 → {} (Advanced)", "Dynamic"));
-            d_val3.set_css_classes(&["badge-ok"]);
+            d_val3.set_label(&format!("{} (Pending: Advanced)", disp_base3));
+            d_val3.set_css_classes(&["badge-warn"]);
         }
     });
 

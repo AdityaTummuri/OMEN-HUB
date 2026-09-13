@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use zbus::{Connection, Result as ZbusResult};
 
 static RUNTIME: OnceLock<tokio::runtime::Handle> = OnceLock::new();
+static TRAY_HANDLE: OnceLock<ksni::Handle<Tray>> = OnceLock::new();
 
 fn spawn_task<F>(f: F)
 where
@@ -199,8 +200,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("mode_work").into(),
                         checked: cur_power == "work",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.power_mode = "work".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_power_mode("work").await;
                             });
@@ -211,8 +211,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("mode_game").into(),
                         checked: cur_power == "game",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.power_mode = "game".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_power_mode("game").await;
                             });
@@ -223,8 +222,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("mode_game_battery").into(),
                         checked: cur_power == "game-battery",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.power_mode = "game-battery".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_power_mode("game-battery").await;
                             });
@@ -242,8 +240,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("auto").into(),
                         checked: cur_fan == "auto",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.fan_mode = "auto".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_fan_mode("auto").await;
                             });
@@ -254,8 +251,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("max").into(),
                         checked: cur_fan == "max",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.fan_mode = "max".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_fan_mode("max").await;
                             });
@@ -273,8 +269,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("hybrid").into(),
                         checked: cur_gpu == "hybrid",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.gpu_mode = "hybrid".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_gpu_mode("hybrid").await;
                             });
@@ -285,8 +280,7 @@ impl ksni::Tray for Tray {
                     CheckmarkItem {
                         label: t("discrete").into(),
                         checked: cur_gpu == "discrete",
-                        activate: Box::new(|tray: &mut Self| {
-                            tray.gpu_mode = "discrete".into();
+                        activate: Box::new(|_| {
                             spawn_task(async {
                                 set_gpu_mode("discrete").await;
                             });
@@ -306,7 +300,17 @@ impl ksni::Tray for Tray {
                     let _ = Command::new("pkill")
                         .arg("-TERM")
                         .arg("-x")
+                        .arg("omen-hub-gui")
+                        .output();
+                    let _ = Command::new("pkill")
+                        .arg("-TERM")
+                        .arg("-x")
                         .arg("omen-gui")
+                        .output();
+                    let _ = Command::new("pkill")
+                        .arg("-TERM")
+                        .arg("-x")
+                        .arg("omen-hub-cli")
                         .output();
                     let _ = Command::new("pkill")
                         .arg("-TERM")
@@ -412,12 +416,22 @@ async fn set_power_mode(mode: &str) {
             match proxy.set_power_mode(mode).await {
                 Ok(resp) => {
                     if resp.starts_with("FAIL") || resp.starts_with("ERR") {
-                        error!("Güç modu ayarlanamadı ({}) -> {}", mode, resp);
+                        error!("Power mode could not be set ({}) -> {}", mode, resp);
                     } else {
-                        info!("Güç modu ayarlandı ({}) -> {}", mode, resp);
+                        info!("Power mode set ({}) -> {}", mode, resp);
+                        if let Ok(confirmed) = proxy.get_power_mode().await {
+                            let trimmed = confirmed.trim().to_string();
+                            if !trimmed.is_empty() && trimmed != "unknown" {
+                                if let Some(handle) = TRAY_HANDLE.get() {
+                                    handle.update(|tray| {
+                                        tray.power_mode = trimmed;
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
-                Err(e) => error!("Güç modu değiştirilemedi: {}", e),
+                Err(e) => error!("Power mode D-Bus error: {}", e),
             }
         }
     }
@@ -429,12 +443,22 @@ async fn set_fan_mode(mode: &str) {
             match proxy.set_fan_mode(mode).await {
                 Ok(resp) => {
                     if resp.starts_with("FAIL") || resp.starts_with("ERR") {
-                        error!("Fan modu ayarlanamadı ({}) -> {}", mode, resp);
+                        error!("Fan mode could not be set ({}) -> {}", mode, resp);
                     } else {
-                        info!("Fan modu ayarlandı ({}) -> {}", mode, resp);
+                        info!("Fan mode set ({}) -> {}", mode, resp);
+                        if let Ok(confirmed) = proxy.get_fan_mode().await {
+                            let trimmed = confirmed.trim().to_string();
+                            if !trimmed.is_empty() {
+                                if let Some(handle) = TRAY_HANDLE.get() {
+                                    handle.update(|tray| {
+                                        tray.fan_mode = trimmed;
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
-                Err(e) => error!("Fan modu değiştirilemedi: {}", e),
+                Err(e) => error!("Fan mode D-Bus error: {}", e),
             }
         }
     }
@@ -445,17 +469,29 @@ async fn set_gpu_mode(mode: &str) {
         if let Ok(proxy) = MuxProxy::new(&conn).await {
             match proxy.set_gpu_mode(mode).await {
                 Ok(resp) => {
-                    info!("GPU modu ayarlandı ({}) -> {}", mode, resp);
+                    info!("GPU mode set ({}) -> {}", mode, resp);
+                    if let Ok(json_str) = proxy.get_gpu_info().await {
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                            if let Some(confirmed) = val.get("mode").and_then(|v| v.as_str()) {
+                                let confirmed = confirmed.to_string();
+                                if let Some(handle) = TRAY_HANDLE.get() {
+                                    handle.update(|tray| {
+                                        tray.gpu_mode = confirmed;
+                                    });
+                                }
+                            }
+                        }
+                    }
                     if resp.contains("REBOOT") {
                         let _ = Command::new("notify-send")
                             .arg("OMEN-HUB")
-                            .arg("GPU modunun etkin olması için sistemi yeniden başlatmanız gerekiyor.")
+                            .arg("GPU mode change requires a restart to take effect.")
                             .arg("-i")
                             .arg("dialog-warning")
                             .spawn();
                     }
                 }
-                Err(e) => error!("GPU modu değiştirilemedi: {}", e),
+                Err(e) => error!("GPU mode D-Bus error: {}", e),
             }
         }
     }
@@ -466,13 +502,13 @@ async fn main() {
     let _lock_file = match acquire_single_instance_lock() {
         Some(file) => file,
         None => {
-            eprintln!("omen-tray zaten çalışıyor, ikinci örnek sonlandırılıyor.");
+            eprintln!("omen-tray is already running, exiting duplicate instance.");
             return;
         }
     };
 
     env_logger::init();
-    info!("omen-tray başlatılıyor...");
+    info!("omen-tray starting...");
 
     i18n::init();
 
@@ -492,6 +528,7 @@ async fn main() {
 
     let service = ksni::TrayService::new(tray);
     let handle = service.handle();
+    let _ = TRAY_HANDLE.set(handle.clone());
     service.spawn();
 
     // Listen for OMEN key presses from the zero-overhead hotkey monitor

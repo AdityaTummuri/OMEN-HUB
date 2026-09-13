@@ -159,12 +159,14 @@ fn apply_appearance_mode() {
                 let scheme = match am {
                     1 => adw::ColorScheme::ForceLight,
                     2 => adw::ColorScheme::ForceDark,
-                    _ => adw::ColorScheme::Default,
+                    _ => adw::ColorScheme::ForceDark,
                 };
                 adw::StyleManager::default().set_color_scheme(scheme);
+                return;
             }
         }
     }
+    adw::StyleManager::default().set_color_scheme(adw::ColorScheme::ForceDark);
 }
 
 fn build_ui(app: &adw::Application) {
