@@ -42,7 +42,6 @@
 
             installPhase = ''
               mkdir -p $out/libexec/omen-hub
-              mkdir -p $out/libexec/omen-space
               mkdir -p $out/bin
               mkdir -p $out/lib/systemd/system
               mkdir -p $out/lib/sysusers.d
@@ -52,34 +51,20 @@
               mkdir -p $out/share/applications
               mkdir -p $out/share/pixmaps
               mkdir -p $out/share/omen-hub/assets
-              mkdir -p $out/share/omen-space/assets
 
               cp target/*/release/omen-hub-daemon $out/libexec/omen-hub/omen-hub-daemon || cp target/release/omen-hub-daemon $out/libexec/omen-hub/omen-hub-daemon
-              ln -sf $out/libexec/omen-hub/omen-hub-daemon $out/libexec/omen-space/omen-space-daemon
-
               cp target/*/release/omen-hub-cli $out/bin/ || cp target/release/omen-hub-cli $out/bin/
-              ln -sf $out/bin/omen-hub-cli $out/bin/omen-cli
-
               cp target/*/release/omen-hub-tray $out/bin/ || cp target/release/omen-hub-tray $out/bin/
-              ln -sf $out/bin/omen-hub-tray $out/bin/omen-tray
-
               cp target/*/release/omen-hub-gui $out/bin/ || cp target/release/omen-hub-gui $out/bin/
-              ln -sf $out/bin/omen-hub-gui $out/bin/omen-gui
 
               cp data/omen-hub-daemon.service $out/lib/systemd/system/
-              ln -sf $out/lib/systemd/system/omen-hub-daemon.service $out/lib/systemd/system/omen-space-daemon.service
               cp data/sysusers.d/omen-hub.conf $out/lib/sysusers.d/
-              cp data/sysusers.d/omen-space.conf $out/lib/sysusers.d/
               cp data/99-omen-hub.rules $out/lib/udev/rules.d/
-              cp data/99-omen-space.rules $out/lib/udev/rules.d/
               cp data/org.hp.omen.conf $out/share/dbus-1/system.d/
-              cp data/org.hp.OmenSpace.desktop $out/share/applications/
               cp data/omen-hub.desktop $out/share/applications/
               cp data/org.hp.OmenSpace.service $out/share/dbus-1/services/
-              cp src/omen-gui/assets/omenspace.png $out/share/pixmaps/
               cp src/omen-gui/assets/omen-hub.png $out/share/pixmaps/
               cp -r src/omen-gui/assets/* $out/share/omen-hub/assets/
-              cp -r src/omen-gui/assets/* $out/share/omen-space/assets/
 
               # Fix systemd paths
               find $out/lib/systemd/system -type f -exec sed -i "s|/usr/libexec|$out/libexec|g" {} +
@@ -117,9 +102,9 @@
 
             boot.extraModulePackages = [
               (pkgs.linuxPackages.callPackage ({ stdenv, kernel }: stdenv.mkDerivation {
-                pname = "omen-space-driver";
+                pname = "omen-hub-driver";
                 version = "2.0.3";
-                src = "${self.packages.${pkgs.system}.omen-space.src}/driver";
+                src = "${self.packages.${pkgs.system}.omen-hub.src}/driver";
                 nativeBuildInputs = kernel.moduleBuildDependencies;
                 makeFlags = [
                   "KERNELRELEASE=${kernel.modDirVersion}"

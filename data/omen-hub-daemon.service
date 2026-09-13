@@ -29,8 +29,7 @@ SystemCallFilter=@system-service @module @mount
 
 # Allow /sys writes for unprivileged fan/power control via udev rules
 ProtectKernelTunables=no
-ReadWritePaths=/sys /etc/omen-hub /etc/omen-space /var/lib/omen-hub /var/lib/omen-space
+ReadWritePaths=/sys /etc/omen-hub /var/lib/omen-hub
 
 [Install]
 WantedBy=multi-user.target
-Alias=omen-space-daemon.service
