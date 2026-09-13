@@ -102,7 +102,15 @@ impl ksni::Tray for Tray {
     }
 
     fn icon_theme_path(&self) -> String {
-        "/usr/share/omen-space/assets".into()
+        if std::path::Path::new("/usr/share/omen-space/assets").exists() {
+            "/usr/share/omen-space/assets".into()
+        } else if std::path::Path::new("src/omen-gui/assets").exists() {
+            std::fs::canonicalize("src/omen-gui/assets")
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| "src/omen-gui/assets".into())
+        } else {
+            "assets".into()
+        }
     }
 
     fn title(&self) -> String {

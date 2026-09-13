@@ -59,7 +59,9 @@ package() {
   cp data/org.hp.OmenSpace.desktop "$pkgdir/usr/share/applications/"
   cp data/org.hp.OmenSpace.service "$pkgdir/usr/share/dbus-1/services/"
   cp src/omen-gui/assets/omenspace.png "$pkgdir/usr/share/pixmaps/omenspace.png"
+  cp src/omen-gui/assets/omen-hub.png "$pkgdir/usr/share/pixmaps/omen-hub.png"
   cp src/omen-gui/assets/omenspace.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/omenspace.png"
+  cp src/omen-gui/assets/omen-hub.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/omen-hub.png"
   cp -r src/omen-gui/assets/* "$pkgdir/usr/share/omen-space/assets/"
 
   # Autostart tray

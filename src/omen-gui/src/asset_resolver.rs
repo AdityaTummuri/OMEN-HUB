@@ -6,6 +6,11 @@ pub fn get_asset_path(filename: &str) -> String {
         return system_path;
     }
 
+    let dev_path = format!("src/omen-gui/assets/{}", filename);
+    if Path::new(&dev_path).exists() {
+        return dev_path;
+    }
+
     // Fallback for local development
     format!("assets/{}", filename)
 }

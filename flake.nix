@@ -64,6 +64,7 @@
               cp data/org.hp.OmenSpace.desktop $out/share/applications/
               cp data/org.hp.OmenSpace.service $out/share/dbus-1/services/
               cp src/omen-gui/assets/omenspace.png $out/share/pixmaps/
+              cp src/omen-gui/assets/omen-hub.png $out/share/pixmaps/
               cp -r src/omen-gui/assets/* $out/share/omen-space/assets/
 
               # Fix systemd paths

@@ -253,7 +253,9 @@ do_install() {
     cp data/org.hp.OmenSpace.service /usr/share/dbus-1/services/
     mkdir -p /usr/share/icons/hicolor/512x512/apps
     cp src/omen-gui/assets/omenspace.png /usr/share/icons/hicolor/512x512/apps/omenspace.png
+    cp src/omen-gui/assets/omen-hub.png /usr/share/icons/hicolor/512x512/apps/omen-hub.png
     cp src/omen-gui/assets/omenspace.png /usr/share/pixmaps/omenspace.png
+    cp src/omen-gui/assets/omen-hub.png /usr/share/pixmaps/omen-hub.png
     gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
     cp -r src/omen-gui/assets/* /usr/share/omen-space/assets/
 
@@ -345,8 +347,8 @@ do_uninstall() {
     rm -f /usr/share/applications/omen-space.desktop
     rm -f /usr/share/applications/org.hp.OmenSpace.desktop
     rm -f /usr/share/dbus-1/services/org.hp.OmenSpace.service
-    rm -f /usr/share/pixmaps/omenspace.png
-    rm -f /usr/share/icons/hicolor/512x512/apps/omenspace.png
+    rm -f /usr/share/pixmaps/omenspace.png /usr/share/pixmaps/omen-hub.png
+    rm -f /usr/share/icons/hicolor/512x512/apps/omenspace.png /usr/share/icons/hicolor/512x512/apps/omen-hub.png
     gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
     rm -f /etc/xdg/autostart/omenspace-tray.desktop
 

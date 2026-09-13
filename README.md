@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="images/omenspace.png" alt="OMEN-HUB Logo" width="120" />
+  <img src="images/omen-hub.png" alt="OMEN-HUB Logo" width="120" />
 
   # OMEN-HUB
 
@@ -63,29 +63,11 @@ nix profile install github:AdityaTummuri/OMEN-HUB
 
 ---
 
-## 📸 Screenshots
+## 📸 Interface Preview
 
 <p align="center">
-  <img src="images/perf.png" width="48%" alt="Fan Curve Editor" />
-  <img src="images/profile.png" width="48%" alt="Thermal Profiles" />
+  <img src="images/omen-hub.png" width="200" alt="OMEN-HUB Visual Identity" />
 </p>
-<p align="center">
-  <img src="images/rgb.png" width="48%" alt="RGB Settings" />
-  <img src="images/undervolt.png" width="48%" alt="Ryzen Undervolting" />
-</p>
-
-<details>
-<summary><b>🔍 View More Screenshots (MUX, Diagnostics, Settings)</b></summary>
-<br>
-<p align="center">
-  <img src="images/mux.png" width="48%" alt="MUX Switch" />
-  <img src="images/diagno.png" width="48%" alt="Diagnostics" />
-</p>
-<p align="center">
-  <img src="images/settings.png" width="48%" alt="Settings" />
-  <img src="images/cli.png" width="48%" alt="CLI" />
-</p>
-</details>
 
 ---
 
