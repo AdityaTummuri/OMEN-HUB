@@ -700,7 +700,7 @@ static int hp_wmi_perform_query(int query, enum hp_wmi_command command,
         if (WARN_ON(mid < 0))
                 return mid;
 
-        actual_insize = max(insize, 128);
+        actual_insize = max(insize, 512);
         bios_args_size = struct_size(args, data, actual_insize);
         args = kzalloc(bios_args_size, GFP_KERNEL);
         if (!args)
@@ -1005,11 +1005,25 @@ static int thermal_profile_set(int thermal_profile);
  */
 static int hp_wmi_fan_speed_reset(struct hp_wmi_hwmon_priv *priv)
 {
+	u8 zero_rpm[2] = {0, 0};
 	int ret;
 
 	ret = hp_wmi_fan_speed_max_set(0);
-	if (ret)
-		return ret;
+	if (ret < 0)
+		pr_debug("hp_wmi: fan_speed_max_set(0) returned %d\n", ret);
+
+	/*
+	 * Explicitly write 0 to EC fan override registers 0x22 and 0x23 via
+	 * HPWMI_VICTUS_S_FAN_SPEED_SET_QUERY (0x2E).
+	 * We intentionally bypass hp_wmi_get_fan_count_userdefine_trigger()
+	 * so the EC 120-second manual override timer is NOT loaded.
+	 */
+	hp_wmi_perform_query(HPWMI_VICTUS_S_FAN_SPEED_SET_QUERY,
+			     HPWMI_GM, &zero_rpm, sizeof(zero_rpm), 0);
+
+	priv->pwm = 0;
+	priv->target_rpms[0] = 0;
+	priv->target_rpms[1] = 0;
 
 	if (!priv->fan_speed_available)
 		return 0;
@@ -1022,16 +1036,30 @@ static int hp_wmi_fan_speed_reset(struct hp_wmi_hwmon_priv *priv)
 	 *
 	 * To force the EC to instantly release manual override and resume automatic
 	 * fan control without waiting for the watchdog timeout, we re-apply the active
-	 * thermal profile via HPWMI_SET_PERFORMANCE_MODE.
+	 * thermal profile via HPWMI_SET_PERFORMANCE_MODE directly without triggering
+	 * hp_wmi_get_fan_count_userdefine_trigger() (which would restart the 120s timer).
 	 */
-	if (is_omen_thermal_profile())
+	if (active_thermal_profile_params) {
+		int tp;
+
+		switch (active_platform_profile) {
+		case PLATFORM_PROFILE_PERFORMANCE:
+			tp = active_thermal_profile_params->performance;
+			break;
+		case PLATFORM_PROFILE_BALANCED:
+		case PLATFORM_PROFILE_LOW_POWER:
+		default:
+			tp = active_thermal_profile_params->balanced;
+			break;
+		}
+		omen_thermal_profile_set(tp);
+	} else if (is_omen_thermal_profile()) {
 		platform_profile_omen_set_ec(active_platform_profile);
-	else if (is_victus_thermal_profile())
+	} else if (is_victus_thermal_profile()) {
 		platform_profile_victus_set_ec(active_platform_profile);
-	else if (is_victus_s_thermal_profile())
-		platform_profile_victus_s_set_ec(active_platform_profile);
-	else
+	} else {
 		thermal_profile_set(thermal_profile_get());
+	}
 
 	return 0;
 }
@@ -2962,9 +2990,9 @@ static int hp_wmi_apply_fan_settings(struct hp_wmi_hwmon_priv *priv)
 {
 	int ret = 0;
 
-	/* Skip no-op transitions in AUTO→AUTO */
+	/* In AUTO→AUTO re-assert fan speed reset to guarantee hardware idempotency */
 	if (priv->mode == PWM_MODE_AUTO && priv->prev_mode == PWM_MODE_AUTO)
-		return 0;
+		return hp_wmi_fan_speed_max_reset(priv);
 
 	switch (priv->mode) {
 	case PWM_MODE_MAX:
@@ -3201,9 +3229,6 @@ static int hp_wmi_hwmon_write(struct device *dev, enum hwmon_sensor_types type,
 			break;
 
 		case PWM_MODE_AUTO:
-			if (priv->mode == PWM_MODE_AUTO)
-				break; /* already in AUTO, nothing to do */
-
 			/*
 			 * We must guarantee the keep_alive work item has
 			 * finished before updating state.  _sync cannot be
@@ -3493,11 +3518,11 @@ static int __init hp_wmi_init(void)
 	int bios_capable;
 	int err, tmp = 0;
 
-	if (wmi_has_guid(HPWMI_OMEN_HPC_GUID)) {
-		active_bios_guid = HPWMI_OMEN_HPC_GUID;
-		bios_capable = 1;
-	} else if (wmi_has_guid(HPWMI_BIOS_GUID)) {
+	if (wmi_has_guid(HPWMI_BIOS_GUID)) {
 		active_bios_guid = HPWMI_BIOS_GUID;
+		bios_capable = 1;
+	} else if (wmi_has_guid(HPWMI_OMEN_HPC_GUID)) {
+		active_bios_guid = HPWMI_OMEN_HPC_GUID;
 		bios_capable = 1;
 	} else {
 		bios_capable = 0;

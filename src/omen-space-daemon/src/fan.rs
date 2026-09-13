@@ -357,10 +357,12 @@ impl FanService {
         } else if enable_val == 0 {
             state.manual_target_pct = None;
             state.last_written_duty = Some(255);
+            state.last_targets.clear();
             state.mode = "max".to_string();
         } else {
             state.manual_target_pct = None;
             state.last_written_duty = None;
+            state.last_targets.clear();
             state.mode = "auto".to_string();
         }
 
@@ -463,6 +465,9 @@ impl FanService {
     }
 
     async fn get_target_speed(state: &FanState, fan_num: u32) -> u32 {
+        if state.mode == "auto" {
+            return 0;
+        }
         if let Some(target) = state.last_targets.get(&fan_num) {
             return *target;
         }
@@ -571,6 +576,22 @@ impl FanService {
             1 => state
                 .manual_target_pct
                 .unwrap_or_else(|| Self::pwm_to_pct(pwm1_val)),
+            2 => {
+                // In Auto mode, the BIOS EC thermal curve governs fan speed.
+                // Derive effective percentage from real hardware RPMs relative to max RPM.
+                let mut max_pct = 0u32;
+                for fan in &fans {
+                    let cur = fan.get("current_rpm").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let max = fan.get("max_rpm").and_then(|v| v.as_u64()).unwrap_or(6000);
+                    if max > 0 {
+                        let pct = ((cur as f64 * 100.0) / max as f64).round() as u32;
+                        if pct > max_pct {
+                            max_pct = pct;
+                        }
+                    }
+                }
+                max_pct.min(100)
+            }
             _ => Self::pwm_to_pct(pwm1_val),
         };
 
@@ -910,5 +931,246 @@ mod tests {
                 points
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_regression_manual_to_auto_clears_state_and_targets() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        let mut state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "manual".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::from([(1, 3600), (2, 3600)]),
+            manual_target_pct: Some(60),
+            last_written_duty: Some(153),
+            last_written_duty_time: None,
+        };
+
+        // Transition from MANUAL to AUTO
+        let res = FanService::set_mode_internal(&mut state, "auto").await;
+        assert!(res.is_ok());
+        assert_eq!(state.mode, "auto");
+        assert!(state.manual_target_pct.is_none());
+        assert!(state.last_written_duty.is_none());
+        assert!(
+            state.last_targets.is_empty(),
+            "last_targets must be cleared on AUTO"
+        );
+
+        // Sysfs pwm1_enable must be 2
+        let enable_content = fs::read_to_string(mock_dir.join("pwm1_enable")).unwrap();
+        assert_eq!(enable_content.trim(), "2");
+
+        // Target speed reported in Auto mode must be 0 (dynamic EC curve)
+        let target = FanService::get_target_speed(&state, 1).await;
+        assert_eq!(target, 0, "Auto mode target speed must be 0");
+
+        let _ = fs::remove_dir_all(cleanup);
+    }
+
+    #[tokio::test]
+    async fn test_regression_max_to_auto_clears_max_duty_and_targets() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        let mut state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "max".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::from([(1, 6000), (2, 6000)]),
+            manual_target_pct: None,
+            last_written_duty: Some(255),
+            last_written_duty_time: None,
+        };
+
+        // Transition from MAX to AUTO
+        let res = FanService::set_mode_internal(&mut state, "auto").await;
+        assert!(res.is_ok());
+        assert_eq!(state.mode, "auto");
+        assert!(state.manual_target_pct.is_none());
+        assert!(state.last_written_duty.is_none());
+        assert!(
+            state.last_targets.is_empty(),
+            "last_targets must be cleared on MAX -> AUTO"
+        );
+
+        // Sysfs pwm1_enable must be 2
+        let enable_content = fs::read_to_string(mock_dir.join("pwm1_enable")).unwrap();
+        assert_eq!(enable_content.trim(), "2");
+
+        let _ = fs::remove_dir_all(cleanup);
+    }
+
+    #[tokio::test]
+    async fn test_regression_repeated_max_to_auto() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        let mut state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "auto".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::new(),
+            manual_target_pct: None,
+            last_written_duty: None,
+            last_written_duty_time: None,
+        };
+
+        // Pass 1: Set MAX
+        let res_max1 = FanService::set_mode_internal(&mut state, "max").await;
+        assert!(res_max1.is_ok());
+        assert_eq!(state.mode, "max");
+        assert_eq!(
+            fs::read_to_string(mock_dir.join("pwm1_enable"))
+                .unwrap()
+                .trim(),
+            "0"
+        );
+
+        // Pass 1: Set AUTO
+        let res_auto1 = FanService::set_mode_internal(&mut state, "auto").await;
+        assert!(res_auto1.is_ok());
+        assert_eq!(state.mode, "auto");
+        assert_eq!(
+            fs::read_to_string(mock_dir.join("pwm1_enable"))
+                .unwrap()
+                .trim(),
+            "2"
+        );
+        assert!(state.last_targets.is_empty());
+
+        // Pass 2: Set MAX again
+        let res_max2 = FanService::set_mode_internal(&mut state, "max").await;
+        assert!(res_max2.is_ok());
+        assert_eq!(state.mode, "max");
+        assert_eq!(
+            fs::read_to_string(mock_dir.join("pwm1_enable"))
+                .unwrap()
+                .trim(),
+            "0"
+        );
+
+        // Pass 2: Set AUTO again
+        let res_auto2 = FanService::set_mode_internal(&mut state, "auto").await;
+        assert!(res_auto2.is_ok());
+        assert_eq!(state.mode, "auto");
+        assert_eq!(
+            fs::read_to_string(mock_dir.join("pwm1_enable"))
+                .unwrap()
+                .trim(),
+            "2"
+        );
+        assert!(state.last_targets.is_empty());
+
+        let _ = fs::remove_dir_all(cleanup);
+    }
+
+    #[tokio::test]
+    async fn test_regression_auto_idempotency() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        let mut state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "auto".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::new(),
+            manual_target_pct: None,
+            last_written_duty: None,
+            last_written_duty_time: None,
+        };
+
+        // Repeated AUTO invocations must be strictly idempotent
+        for _ in 0..3 {
+            let res = FanService::set_mode_internal(&mut state, "auto").await;
+            assert!(res.is_ok());
+            assert_eq!(state.mode, "auto");
+            assert_eq!(
+                fs::read_to_string(mock_dir.join("pwm1_enable"))
+                    .unwrap()
+                    .trim(),
+                "2"
+            );
+            assert!(state.manual_target_pct.is_none());
+            assert!(state.last_written_duty.is_none());
+            assert!(state.last_targets.is_empty());
+        }
+
+        let _ = fs::remove_dir_all(cleanup);
+    }
+
+    #[tokio::test]
+    async fn test_regression_daemon_state_matching_hardware_telemetry() {
+        let (mock_dir, cleanup) = create_mock_hwmon();
+        // Stale pwm1 node says 255 (e.g. leftover from MAX), but fans are running at 2400 RPM / max 6000
+        fs::write(mock_dir.join("pwm1"), "255\n").unwrap();
+        fs::write(mock_dir.join("pwm1_enable"), "2\n").unwrap();
+        fs::write(mock_dir.join("fan1_input"), "2400\n").unwrap();
+        fs::write(mock_dir.join("fan2_input"), "2400\n").unwrap();
+
+        let state = FanState {
+            hwmon_path: Some(mock_dir.clone()),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "auto".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::new(),
+            manual_target_pct: None,
+            last_written_duty: None,
+            last_written_duty_time: None,
+        };
+
+        let service = FanService {
+            state: Arc::new(Mutex::new(state)),
+        };
+
+        let status_json = service.get_fan_status().await;
+        let v: serde_json::Value = serde_json::from_str(&status_json).unwrap();
+
+        assert_eq!(v["mode"], "auto");
+        assert_eq!(v["pwm_enable"], 2);
+        // Effective percentage must be derived from live RPMs (2400/6000 = 40%), NOT the stale 255 PWM duty (100%)
+        assert_eq!(
+            v["percentage"], 40,
+            "Effective speed in auto mode must match hardware telemetry, not stale pwm1"
+        );
+
+        let _ = fs::remove_dir_all(cleanup);
+    }
+
+    #[tokio::test]
+    async fn test_regression_failed_sysfs_write_reporting() {
+        let nonexistent = PathBuf::from("/nonexistent/hwmon/path_never_created");
+        let mut state = FanState {
+            hwmon_path: Some(nonexistent),
+            found_fans: vec![1, 2],
+            max_speeds: HashMap::from([(1, 6000), (2, 6000)]),
+            fallback_paths: HashMap::new(),
+            fan_count: 2,
+            mode: "manual".to_string(),
+            custom_curve_json: "[]".to_string(),
+            last_targets: HashMap::new(),
+            manual_target_pct: Some(50),
+            last_written_duty: Some(128),
+            last_written_duty_time: None,
+        };
+
+        // Failed sysfs write must return Err and NOT report success
+        let res = FanService::set_mode_internal(&mut state, "auto").await;
+        assert!(res.is_err(), "Failed sysfs write must return error");
+        // State must not be updated to auto on failed write
+        assert_eq!(state.mode, "manual");
     }
 }
