@@ -18,10 +18,17 @@ struct GuiConfig {
 pub fn get_language() -> Language {
     let mut selected = Language::Auto;
     if let Some(home) = std::env::var_os("HOME") {
-        let mut p = PathBuf::from(home);
+        let mut p = PathBuf::from(&home);
         p.push(".config");
-        p.push("omenspace");
+        p.push("omen-hub");
         p.push("gui_config.json");
+        if !p.exists() {
+            let mut p_legacy = PathBuf::from(home);
+            p_legacy.push(".config");
+            p_legacy.push("omenspace");
+            p_legacy.push("gui_config.json");
+            p = p_legacy;
+        }
 
         if let Ok(content) = fs::read_to_string(&p) {
             if let Ok(cfg) = serde_json::from_str::<GuiConfig>(&content) {

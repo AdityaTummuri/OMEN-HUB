@@ -84,7 +84,11 @@ impl AutoUpdateService {
         )
         .await;
 
-        let update_dir = "/var/lib/omen-space/updates";
+        let update_dir = if std::path::Path::new("/var/lib/omen-hub").exists() {
+            "/var/lib/omen-hub/updates"
+        } else {
+            "/var/lib/omen-space/updates"
+        };
         let _ = tokio::fs::create_dir_all(update_dir).await;
         #[cfg(unix)]
         {
@@ -93,7 +97,7 @@ impl AutoUpdateService {
                 .await;
         }
 
-        let download_target = format!("{}/omen-space-update.tar.gz", update_dir);
+        let download_target = format!("{}/omen-hub-update.tar.gz", update_dir);
         let extract_dir = format!("{}/extracted", update_dir);
 
         // Security Check: Validate download URL scheme & host
@@ -164,8 +168,19 @@ impl AutoUpdateService {
         }
 
         // Check for extracted binary & verify ELF magic bytes
-        let new_binary = format!("{}/omen-space-daemon", extract_dir);
-        let installed_path = "/usr/libexec/omen-space/omen-space-daemon";
+        let new_binary = if tokio::fs::try_exists(format!("{}/omen-hub-daemon", extract_dir))
+            .await
+            .unwrap_or(false)
+        {
+            format!("{}/omen-hub-daemon", extract_dir)
+        } else {
+            format!("{}/omen-space-daemon", extract_dir)
+        };
+        let installed_path = if std::path::Path::new("/usr/libexec/omen-hub").exists() {
+            "/usr/libexec/omen-hub/omen-hub-daemon"
+        } else {
+            "/usr/libexec/omen-space/omen-space-daemon"
+        };
 
         if tokio::fs::try_exists(&new_binary).await.unwrap_or(false) {
             // Verify ELF magic bytes [0x7F, b'E', b'L', b'F']
@@ -260,7 +275,7 @@ async fn fetch_latest_github_release() -> (String, String, String, String) {
                 .to_string();
 
             let mut download_url = format!(
-                "https://github.com/{}/releases/download/{}/omen-space-daemon-linux-x64.tar.gz",
+                "https://github.com/{}/releases/download/{}/omen-hub-daemon-linux-x64.tar.gz",
                 REPO_OWNER_NAME, tag_name
             );
             if let Some(assets) = v["assets"].as_array() {

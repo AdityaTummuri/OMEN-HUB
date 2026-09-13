@@ -3,12 +3,9 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use zbus::interface;
-
-const CONFIG_PATH: &str = "/etc/omen-space/ryzen.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct RyzenConfig {
@@ -21,7 +18,8 @@ struct RyzenConfig {
 
 impl RyzenConfig {
     fn load() -> Self {
-        if let Ok(data) = fs::read_to_string(CONFIG_PATH) {
+        let path = crate::config::get_daemon_config_path("ryzen.json");
+        if let Ok(data) = fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {
             Self::default()
@@ -29,11 +27,12 @@ impl RyzenConfig {
     }
     #[allow(dead_code)]
     fn save(&self) {
-        if let Some(dir) = Path::new(CONFIG_PATH).parent() {
+        let path = crate::config::get_daemon_config_path("ryzen.json");
+        if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = fs::write(CONFIG_PATH, json);
+            let _ = fs::write(&path, json);
         }
     }
 }

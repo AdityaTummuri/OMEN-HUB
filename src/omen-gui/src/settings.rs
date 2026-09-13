@@ -28,34 +28,32 @@ pub fn build_page(
         || prod_lower.contains("transcend")
         || prod_lower.contains("max");
 
-    if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/omenspace/settings.json", home);
-        if let Ok(json_str) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(hb) = json.get("heartbeat_interval").and_then(|v| v.as_f64()) {
-                    init_hb = hb;
-                }
-                if let Some(auto) = json.get("autostart").and_then(|v| v.as_bool()) {
-                    init_auto = auto;
-                }
-                if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
-                    init_startup_profile = sp as u32;
-                }
-                if let Some(bc) = json.get("battery_care").and_then(|v| v.as_bool()) {
-                    init_battery_care = bc;
-                }
-                if let Some(ta) = json.get("thermal_alerts").and_then(|v| v.as_bool()) {
-                    init_thermal_alerts = ta;
-                }
-                if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
-                    init_zone_override = zo as u32;
-                }
-                if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) {
-                    init_appearance_mode = am as u32;
-                }
-                if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) {
-                    init_lightbar = lb;
-                }
+    let path = crate::get_user_config_path("settings.json");
+    if let Ok(json_str) = std::fs::read_to_string(&path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+            if let Some(hb) = json.get("heartbeat_interval").and_then(|v| v.as_f64()) {
+                init_hb = hb;
+            }
+            if let Some(auto) = json.get("autostart").and_then(|v| v.as_bool()) {
+                init_auto = auto;
+            }
+            if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
+                init_startup_profile = sp as u32;
+            }
+            if let Some(bc) = json.get("battery_care").and_then(|v| v.as_bool()) {
+                init_battery_care = bc;
+            }
+            if let Some(ta) = json.get("thermal_alerts").and_then(|v| v.as_bool()) {
+                init_thermal_alerts = ta;
+            }
+            if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
+                init_zone_override = zo as u32;
+            }
+            if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) {
+                init_appearance_mode = am as u32;
+            }
+            if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) {
+                init_lightbar = lb;
             }
         }
     }
@@ -142,20 +140,19 @@ pub fn build_page(
         };
         adw::StyleManager::default().set_color_scheme(scheme);
 
-        if let Ok(home) = std::env::var("HOME") {
-            let path = format!("{}/.config/omenspace/settings.json", home);
-            let mut json = serde_json::json!({});
-            if let Ok(js) = std::fs::read_to_string(&path) {
-                if let Ok(j) = serde_json::from_str::<serde_json::Value>(&js) {
-                    json = j;
-                }
+        let read_path = crate::get_user_config_path("settings.json");
+        let mut json = serde_json::json!({});
+        if let Ok(js) = std::fs::read_to_string(&read_path) {
+            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&js) {
+                json = j;
             }
-            json["appearance_mode"] = serde_json::json!(idx);
-            let _ = std::fs::write(
-                &path,
-                serde_json::to_string_pretty(&json).unwrap_or_default(),
-            );
         }
+        json["appearance_mode"] = serde_json::json!(idx);
+        let save_path = crate::get_user_config_save_path("settings.json");
+        let _ = std::fs::write(
+            &save_path,
+            serde_json::to_string_pretty(&json).unwrap_or_default(),
+        );
     });
     app_lang_group.add(&appearance_row);
 
@@ -284,24 +281,20 @@ pub fn build_page(
         let ta = thm_row_clone.is_active();
         let zo = zone_row_clone.selected();
         let lb = lb_row_clone.is_active();
-        if let Ok(home) = std::env::var("HOME") {
-            let dir = format!("{}/.config/omenspace", home);
-            let _ = std::fs::create_dir_all(&dir);
-            let path = format!("{}/settings.json", dir);
-            let json = serde_json::json!({
-                "heartbeat_interval": hb,
-                "autostart": auto,
-                "startup_profile": sp,
-                "battery_care": bc,
-                "thermal_alerts": ta,
-                "zone_override": zo,
-                "lightbar_enabled": lb
-            });
-            let _ = std::fs::write(
-                path,
-                serde_json::to_string_pretty(&json).unwrap_or_default(),
-            );
-        }
+        let path = crate::get_user_config_save_path("settings.json");
+        let json = serde_json::json!({
+            "heartbeat_interval": hb,
+            "autostart": auto,
+            "startup_profile": sp,
+            "battery_care": bc,
+            "thermal_alerts": ta,
+            "zone_override": zo,
+            "lightbar_enabled": lb
+        });
+        let _ = std::fs::write(
+            path,
+            serde_json::to_string_pretty(&json).unwrap_or_default(),
+        );
     };
 
     let save_settings_rc = Rc::new(save_settings);

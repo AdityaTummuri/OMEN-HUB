@@ -16,13 +16,13 @@ graph TD
     end
 
     subgraph "Root Context (Server)"
-        Daemon[omen-space-daemon]
+        Daemon[omen-hub-daemon]
     end
 
     subgraph "User Context (Clients)"
-        GUI[omen-gui (GTK4)]
-        CLI[omen-cli]
-        Tray[omen-tray]
+        GUI[omen-hub-gui / omen-gui (GTK4)]
+        CLI[omen-hub-cli / omen-cli]
+        Tray[omen-hub-tray / omen-tray]
     end
     
     Daemon <-->|Sysfs / Ioctl| K
@@ -37,7 +37,7 @@ graph TD
 
 ### Why this architecture?
 Direct hardware manipulation (changing fan curves, editing CPU MSR registers, modifying WMI endpoints) requires `root` access. 
-By placing all hardware logic inside `omen-space-daemon` (which runs as a root systemd service) and having it expose a safe D-Bus API, client applications like `omen-gui` can run completely unprivileged. This aligns with modern Linux security standards (similar to how NetworkManager or systemd-logind works).
+By placing all hardware logic inside `omen-hub-daemon` (with `omen-space-daemon` compatibility alias), which runs as a root systemd service and exposes a safe D-Bus API, client applications like `omen-hub-gui` can run completely unprivileged. This aligns with modern Linux security standards (similar to how NetworkManager or systemd-logind works).
 
 ---
 
@@ -66,15 +66,15 @@ The primary user interface.
   - `performance_control.rs`: UI for thermal profiles (Eco/Balanced/Performance) and Fan Modes (Auto/Max/Custom).
   - `keyboardrgb.rs`: UI for selecting colors and effects.
   - `updater.rs`: Implements GitHub API checking for OTA software updates and `fwupdmgr` for BIOS updates.
-  - `asset_resolver.rs`: Ensures `.svg` and `.png` images are loaded from the correct system paths (`/usr/share/omen-space/assets/`).
+  - `asset_resolver.rs`: Ensures `.svg` and `.png` images are loaded from the correct system paths (`/usr/share/omen-hub/assets/` with fallback to `/usr/share/omen-space/assets/`).
 
 ### 2.3. `src/omen-cli/`
-The command-line tool.
+The command-line tool (`omen-hub-cli` / `omen-cli`).
 - **Language:** Rust
-- **Role:** Allows scripts or power users to control hardware directly from the terminal (e.g., `omen-cli fans max`).
+- **Role:** Allows scripts or power users to control hardware directly from the terminal (e.g., `omen-hub-cli fans max`).
 
 ### 2.4. `src/omen-tray/`
-The system tray icon.
+The system tray icon (`omen-hub-tray` / `omen-tray`).
 - **Language:** Rust
 - **Role:** Runs quietly in the background, providing quick toggles (right-click menu) without needing to open the full GTK app.
 
@@ -86,9 +86,9 @@ The kernel module.
 ### 2.6. `data/`
 System integration files.
 - `org.hp.omen.conf`: Polkit / D-Bus security policy allowing standard users to communicate with the root daemon.
-- `omen-space-daemon.service`: The systemd service definition.
-- `org.hp.OmenSpace.desktop`: The application launcher for Desktop Environments (GNOME, KDE).
-- `99-omen-space.rules`: Udev rules to ensure devices have correct permissions.
+- `omen-hub-daemon.service` / `omen-space-daemon.service`: The systemd service definition and compatibility alias.
+- `omen-hub.desktop` / `org.hp.OmenSpace.desktop`: The application launcher for Desktop Environments (GNOME, KDE).
+- `99-omen-hub.rules` / `99-omen-space.rules`: Udev rules to ensure devices have correct permissions.
 
 ---
 
@@ -96,10 +96,10 @@ System integration files.
 
 To understand how the app works, here is the lifecycle of a user action:
 
-1. **User Action:** The user clicks a custom fan preset button in `omen-gui`.
+1. **User Action:** The user clicks a custom fan preset button in `omen-hub-gui`.
 2. **GUI Layer:** `performance_control.rs` detects the click and calls `crate::daemon_client::set_fan_mode_async("custom", curve_data)`.
 3. **D-Bus Layer:** The `zbus` library serializes this call and sends it over the Linux System Bus to the `org.hp.omen.fans` interface.
-4. **Daemon Layer:** `omen-space-daemon` receives the message.
+4. **Daemon Layer:** `omen-hub-daemon` receives the message.
 5. **Hardware Layer:** The daemon translates the `curve_data` into specific hex bytes and writes them to the HP WMI ACPI endpoint or the Embedded Controller (EC) memory registers.
 6. **Hardware Response:** The fans immediately spin up to the requested curve.
 

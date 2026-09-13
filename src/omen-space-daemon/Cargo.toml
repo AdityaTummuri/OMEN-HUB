@@ -3,6 +3,11 @@ name = "omen-space-daemon"
 version = "2.0.3"
 edition = "2021"
 
+[[bin]]
+name = "omen-hub-daemon"
+path = "src/main.rs"
+
+
 [dependencies]
 zbus = { version = "4.3.1", features = ["tokio"] }
 tokio = { version = "1.32", features = ["full"] }

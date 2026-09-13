@@ -24,7 +24,7 @@ Thank you for your interest in contributing to OMEN-HUB! As an open-source tool 
 
 1. **No Root in the GUI:**
    - OMEN-HUB strictly follows a split privilege model. `omen-gui`, `omen-cli`, and `omen-tray` must **never** require `sudo`. 
-   - If you need to access a new `/sys/` or `/dev/` endpoint, that logic MUST be written in `omen-space-daemon`.
+   - If you need to access a new `/sys/` or `/dev/` endpoint, that logic MUST be written in `omen-hub-daemon` (or legacy `omen-space-daemon`).
    - The GUI will communicate with the daemon via D-Bus (`zbus`).
 
 2. **D-Bus Interface Definitions:**

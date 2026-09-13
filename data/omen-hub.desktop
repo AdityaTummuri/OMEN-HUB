@@ -9,4 +9,3 @@ Categories=System;Settings;HardwareSettings;
 Keywords=HP;OMEN;Fan;Performance;Control;
 StartupNotify=true
 StartupWMClass=org.hp.OmenSpace
-DBusActivatable=true

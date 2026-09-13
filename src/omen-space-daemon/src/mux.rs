@@ -19,7 +19,6 @@ use tokio::sync::Mutex;
 use zbus::interface;
 
 const HP_WMI_GRAPHICS_MODE_PATH: &str = "/sys/devices/platform/hp-wmi/gpu_mux_mode";
-const CONFIG_PATH: &str = "/etc/omen-space/mux.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct MuxConfig {
@@ -36,18 +35,20 @@ impl Default for MuxConfig {
 
 impl MuxConfig {
     fn load() -> Self {
-        if let Ok(data) = std::fs::read_to_string(CONFIG_PATH) {
+        let path = crate::config::get_daemon_config_path("mux.json");
+        if let Ok(data) = std::fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {
             Self::default()
         }
     }
     fn save(&self) {
-        if let Some(dir) = Path::new(CONFIG_PATH).parent() {
+        let path = crate::config::get_daemon_config_path("mux.json");
+        if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(CONFIG_PATH, json);
+            let _ = std::fs::write(&path, json);
         }
     }
 }

@@ -75,10 +75,10 @@ nix profile install github:AdityaTummuri/OMEN-HUB
 
 OMEN-HUB is a complete rewrite of the legacy Python *OmenCtl*, moving to **Rust** to achieve a ~3MB footprint, less than 5MB of RAM usage, and instant responsiveness.
 
-- **`omen-space-daemon`**: The backend. Runs as a systemd service (root), managing WMI, ACPI, Sysfs, and MSR interactions over secure D-Bus.
-- **`omen-gui`**: A beautifully fast GTK4 + Libadwaita frontend running in user-space.
-- **`omen-tray`**: A lightweight desktop panel applet for quick profile toggling.
-- **`omen-cli`**: A fast scriptable terminal interface.
+- **`omen-hub-daemon`** (legacy alias `omen-space-daemon`): The backend. Runs as a systemd service (root), managing WMI, ACPI, Sysfs, and MSR interactions over secure D-Bus.
+- **`omen-hub-gui`** (or `omen-gui`): A beautifully fast GTK4 + Libadwaita frontend running in user-space.
+- **`omen-hub-tray`** (or `omen-tray`): A lightweight desktop panel applet for quick profile toggling.
+- **`omen-hub-cli`** (or `omen-cli`): A fast scriptable terminal interface.
 - **`hp-omen-extra`**: The underlying DKMS kernel driver extending standard kernel capabilities.
 
 ---

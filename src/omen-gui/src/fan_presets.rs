@@ -9,11 +9,7 @@ pub struct FanPreset {
 }
 
 fn get_presets_path() -> PathBuf {
-    if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".config/omenspace/fan_presets.json")
-    } else {
-        PathBuf::from("/tmp/fan_presets.json")
-    }
+    crate::get_user_config_path("fan_presets.json")
 }
 
 pub fn load_presets() -> Vec<FanPreset> {
@@ -26,7 +22,7 @@ pub fn load_presets() -> Vec<FanPreset> {
 }
 
 pub fn save_presets(presets: &[FanPreset]) {
-    let path = get_presets_path();
+    let path = crate::get_user_config_save_path("fan_presets.json");
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }

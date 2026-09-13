@@ -47,7 +47,16 @@ fn acquire_single_instance_lock() -> Option<std::fs::File> {
 fn spawn_gui() {
     let spawned = std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().map(|dir| dir.join("omen-gui")))
+        .and_then(|p| {
+            p.parent().map(|dir| {
+                let hub_gui = dir.join("omen-hub-gui");
+                if hub_gui.exists() {
+                    hub_gui
+                } else {
+                    dir.join("omen-gui")
+                }
+            })
+        })
         .and_then(|gui_path| {
             if gui_path.exists() {
                 Command::new(gui_path)
@@ -62,11 +71,25 @@ fn spawn_gui() {
         });
 
     if spawned.is_none() {
-        let _ = Command::new("omen-gui")
+        let _ = Command::new("omen-hub-gui")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
+            .or_else(|_| {
+                Command::new("omen-gui")
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+            })
+            .or_else(|_| {
+                Command::new("/usr/bin/omen-hub-gui")
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+            })
             .or_else(|_| {
                 Command::new("/usr/bin/omen-gui")
                     .stdin(std::process::Stdio::null())
@@ -86,7 +109,7 @@ struct Tray {
 
 impl ksni::Tray for Tray {
     fn id(&self) -> String {
-        "omenspace_tray".into()
+        "omen-hub-tray".into()
     }
 
     fn category(&self) -> ksni::Category {
@@ -98,11 +121,13 @@ impl ksni::Tray for Tray {
     }
 
     fn icon_name(&self) -> String {
-        "omenspace".into()
+        "omen-hub".into()
     }
 
     fn icon_theme_path(&self) -> String {
-        if std::path::Path::new("/usr/share/omen-space/assets").exists() {
+        if std::path::Path::new("/usr/share/omen-hub/assets").exists() {
+            "/usr/share/omen-hub/assets".into()
+        } else if std::path::Path::new("/usr/share/omen-space/assets").exists() {
             "/usr/share/omen-space/assets".into()
         } else if std::path::Path::new("src/omen-gui/assets").exists() {
             std::fs::canonicalize("src/omen-gui/assets")
@@ -143,7 +168,7 @@ impl ksni::Tray for Tray {
                 t("tt_gpu"),
                 g_label
             ),
-            icon_name: "omenspace".into(),
+            icon_name: "omen-hub".into(),
             ..Default::default()
         }
     }
@@ -160,7 +185,7 @@ impl ksni::Tray for Tray {
         vec![
             StandardItem {
                 label: t("tray_open").into(),
-                icon_name: "omenspace".into(),
+                icon_name: "omen-hub".into(),
                 activate: Box::new(|_| {
                     spawn_gui();
                 }),

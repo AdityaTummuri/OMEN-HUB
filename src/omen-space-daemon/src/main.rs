@@ -33,7 +33,7 @@ use zbus::connection::Builder;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
-    info!("Starting omen-space-daemon v{}", env!("CARGO_PKG_VERSION"));
+    info!("Starting OMEN-HUB daemon v{}", env!("CARGO_PKG_VERSION"));
 
     // Run startup conflict detection check
     let conflicts = conflict_detector::ConflictDetector::check_conflicts();
@@ -118,7 +118,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Start zero-overhead hotkey monitor
     hotkey_monitor::HotkeyMonitor::start(_conn.clone());
 
-    info!("omen-space-daemon successfully registered all microservices & WMI diagnostic engines on D-Bus.");
+    info!("OMEN-HUB daemon successfully registered all microservices & WMI diagnostic engines on D-Bus.");
 
     let iface_ref = _conn
         .object_server()
@@ -148,7 +148,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Restoring fan auto mode on shutdown...");
     fan_service.restore_auto_mode().await;
-    info!("omen-space-daemon shutdown complete.");
+    info!("OMEN-HUB daemon shutdown complete.");
 
     Ok(())
 }

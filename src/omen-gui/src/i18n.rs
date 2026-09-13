@@ -59,10 +59,20 @@ fn default_language() -> String {
 
 fn get_config_path() -> Option<PathBuf> {
     if let Some(home) = std::env::var_os("HOME") {
-        let mut p = PathBuf::from(home);
+        let mut p = PathBuf::from(&home);
         p.push(".config");
-        p.push("omenspace");
+        p.push("omen-hub");
         p.push("gui_config.json");
+        if p.exists() {
+            return Some(p);
+        }
+        let mut p_legacy = PathBuf::from(home);
+        p_legacy.push(".config");
+        p_legacy.push("omenspace");
+        p_legacy.push("gui_config.json");
+        if p_legacy.exists() {
+            return Some(p_legacy);
+        }
         Some(p)
     } else {
         None

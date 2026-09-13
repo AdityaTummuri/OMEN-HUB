@@ -76,6 +76,7 @@ fn main() {
         let icon_theme = gtk::IconTheme::for_display(&display);
         icon_theme.add_search_path("assets");
         icon_theme.add_search_path("src/omen-gui/assets");
+        icon_theme.add_search_path("/usr/share/omen-hub/assets");
         icon_theme.add_search_path("/usr/share/omen-space/assets");
 
         let provider = gtk::CssProvider::new();
@@ -99,38 +100,68 @@ fn main() {
     app.run();
 }
 
-fn apply_startup_profile() {
+pub fn get_user_config_path(filename: &str) -> std::path::PathBuf {
     if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/omenspace/settings.json", home);
-        if let Ok(json_str) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
-                    let mode_name = match sp {
-                        1 => "game-battery",
-                        2 => "work",
-                        3 => "game",
-                        _ => return, // 0 = Last used, do nothing
-                    };
-                    crate::daemon_client::set_power_mode_sync(mode_name);
-                }
+        let hub_path = std::path::PathBuf::from(&home)
+            .join(".config/omen-hub")
+            .join(filename);
+        if hub_path.exists() {
+            return hub_path;
+        }
+        let legacy_path = std::path::PathBuf::from(&home)
+            .join(".config/omenspace")
+            .join(filename);
+        if legacy_path.exists() {
+            return legacy_path;
+        }
+        hub_path
+    } else {
+        std::path::PathBuf::from(filename)
+    }
+}
+
+pub fn get_user_config_save_path(filename: &str) -> std::path::PathBuf {
+    if let Ok(home) = std::env::var("HOME") {
+        let hub_path = std::path::PathBuf::from(&home)
+            .join(".config/omen-hub")
+            .join(filename);
+        if let Some(parent) = hub_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        hub_path
+    } else {
+        std::path::PathBuf::from(filename)
+    }
+}
+
+fn apply_startup_profile() {
+    let path = get_user_config_path("settings.json");
+    if let Ok(json_str) = std::fs::read_to_string(&path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+            if let Some(sp) = json.get("startup_profile").and_then(|v| v.as_u64()) {
+                let mode_name = match sp {
+                    1 => "game-battery",
+                    2 => "work",
+                    3 => "game",
+                    _ => return, // 0 = Last used, do nothing
+                };
+                crate::daemon_client::set_power_mode_sync(mode_name);
             }
         }
     }
 }
 
 fn apply_appearance_mode() {
-    if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/omenspace/settings.json", home);
-        if let Ok(json_str) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) {
-                    let scheme = match am {
-                        1 => adw::ColorScheme::ForceLight,
-                        2 => adw::ColorScheme::ForceDark,
-                        _ => adw::ColorScheme::Default,
-                    };
-                    adw::StyleManager::default().set_color_scheme(scheme);
-                }
+    let path = get_user_config_path("settings.json");
+    if let Ok(json_str) = std::fs::read_to_string(&path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+            if let Some(am) = json.get("appearance_mode").and_then(|v| v.as_u64()) {
+                let scheme = match am {
+                    1 => adw::ColorScheme::ForceLight,
+                    2 => adw::ColorScheme::ForceDark,
+                    _ => adw::ColorScheme::Default,
+                };
+                adw::StyleManager::default().set_color_scheme(scheme);
             }
         }
     }
@@ -471,10 +502,10 @@ fn render_ui(window: &adw::ApplicationWindow, initial_page: &str) {
         .valign(gtk::Align::Center)
         .spacing(8)
         .build();
-    window.set_icon_name(Some("omenspace"));
+    window.set_icon_name(Some("omen-hub"));
     header_logo_box.append(
         &gtk::Image::builder()
-            .icon_name("omenspace")
+            .icon_name("omen-hub")
             .pixel_size(24)
             .build(),
     );

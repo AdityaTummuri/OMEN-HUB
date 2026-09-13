@@ -21,7 +21,7 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 REPO="AdityaTummuri/OMEN-HUB"
-TMP_DIR="/tmp/omen-space-install"
+TMP_DIR="/tmp/omen-hub-install"
 
 if [ "$EUID" -ne 0 ]; then
     err "This installer must be run as root. Please run:\n       curl -sSL https://raw.githubusercontent.com/$REPO/main/install.sh | sudo bash"
@@ -139,15 +139,15 @@ else
     fi
 
     if command -v curl &> /dev/null; then
-        curl -fsSL "$TARBALL_URL" -o omen-space.tar.gz
+        curl -fsSL "$TARBALL_URL" -o omen-hub.tar.gz
     elif command -v wget &> /dev/null; then
-        wget -qO omen-space.tar.gz "$TARBALL_URL"
+        wget -qO omen-hub.tar.gz "$TARBALL_URL"
     else
         err "Neither git, curl, nor wget found. Please install one of them."
     fi
 
-    tar -xzf omen-space.tar.gz --strip-components=1
-    rm -f omen-space.tar.gz
+    tar -xzf omen-hub.tar.gz --strip-components=1
+    rm -f omen-hub.tar.gz
 fi
 
 if [ ! -f "setup.sh" ]; then
@@ -170,7 +170,7 @@ echo -e ""
 echo -e "${GREEN}====================================================${NC}"
 echo -e "${GREEN}  🎉 OMEN-HUB ($TARGET_REF) installed successfully!${NC}"
 echo -e "${GREEN}  Launch GUI via app menu or terminal:              ${NC}"
-echo -e "${BOLD}       omen-gui                                     ${NC}"
+echo -e "${BOLD}       omen-hub-gui (or omen-gui)                   ${NC}"
 echo -e "${GREEN}  CLI control:                                      ${NC}"
-echo -e "${BOLD}       omen-cli --help                              ${NC}"
+echo -e "${BOLD}       omen-hub-cli --help                          ${NC}"
 echo -e "${GREEN}====================================================${NC}"

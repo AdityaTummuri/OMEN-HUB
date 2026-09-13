@@ -1,0 +1,36 @@
+[Unit]
+Description=OMEN-HUB — Unified Hardware Daemon (omen-hub-daemon)
+After=dbus.service systemd-logind.service
+Requires=dbus.service systemd-logind.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/libexec/omen-hub/omen-hub-daemon
+Restart=on-failure
+RestartSec=3
+
+# Run as root to access MSRs, WMI, and D-Bus policies
+# DynamicUser is removed because D-Bus doesn't play well with dynamically allocated users
+
+# Security sandboxing
+NoNewPrivileges=true
+LockPersonality=true
+RestrictSUIDSGID=true
+ProtectSystem=strict
+PrivateTmp=true
+ProtectHome=true
+PrivateNetwork=false
+ProtectKernelModules=false
+ProtectControlGroups=true
+RestrictNamespaces=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service @module @mount
+
+# Allow /sys writes for unprivileged fan/power control via udev rules
+ProtectKernelTunables=no
+ReadWritePaths=/sys /etc/omen-hub /etc/omen-space /var/lib/omen-hub /var/lib/omen-space
+
+[Install]
+WantedBy=multi-user.target
+Alias=omen-space-daemon.service

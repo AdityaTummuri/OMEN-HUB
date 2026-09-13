@@ -20,13 +20,41 @@ impl Default for FanConfig {
     }
 }
 
+pub fn get_daemon_config_path(filename: &str) -> PathBuf {
+    let hub_path = PathBuf::from(format!("/etc/omen-hub/{}", filename));
+    if hub_path.exists() {
+        return hub_path;
+    }
+    let legacy_path = PathBuf::from(format!("/etc/omen-space/{}", filename));
+    if legacy_path.exists() {
+        return legacy_path;
+    }
+    hub_path
+}
+
+pub fn get_daemon_state_path(filename: &str) -> PathBuf {
+    let hub_path = PathBuf::from(format!("/var/lib/omen-hub/{}", filename));
+    if hub_path.exists() {
+        return hub_path;
+    }
+    let legacy_path = PathBuf::from(format!("/var/lib/omen-space-daemon/{}", filename));
+    if legacy_path.exists() {
+        return legacy_path;
+    }
+    let legacy_path2 = PathBuf::from(format!("/var/lib/omen-space/{}", filename));
+    if legacy_path2.exists() {
+        return legacy_path2;
+    }
+    hub_path
+}
+
 pub struct ConfigManager {
     path: PathBuf,
 }
 
 impl ConfigManager {
     pub fn new() -> Self {
-        let path = PathBuf::from("/var/lib/omen-space-daemon/fan_config.json");
+        let path = get_daemon_state_path("fan_config.json");
         Self { path }
     }
 

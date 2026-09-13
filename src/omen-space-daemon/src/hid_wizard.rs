@@ -3,7 +3,6 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -124,10 +123,11 @@ impl HidPerKeyWizard {
         let json_str = serde_json::to_string_pretty(&export_data).unwrap_or_default();
 
         // Write to system keymap dir & /tmp
-        let sys_keymap_path = format!("/etc/omen-space/keymaps/hid-perkey-map-{}.json", board_id);
+        let keymap_rel = format!("keymaps/hid-perkey-map-{}.json", board_id);
+        let sys_keymap_path = crate::config::get_daemon_config_path(&keymap_rel);
         let tmp_keymap_path = "/tmp/hid-perkey-map.json".to_string();
 
-        if let Some(parent) = Path::new(&sys_keymap_path).parent() {
+        if let Some(parent) = sys_keymap_path.parent() {
             let _ = tokio::fs::create_dir_all(parent).await;
         }
         let _ = tokio::fs::write(&sys_keymap_path, &json_str).await;

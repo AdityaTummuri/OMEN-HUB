@@ -3,6 +3,12 @@ name = "omen-cli"
 version = "2.0.3"
 edition = "2021"
 
+[[bin]]
+name = "omen-hub-cli"
+path = "src/main.rs"
+
+
+
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.32", features = ["full"] }

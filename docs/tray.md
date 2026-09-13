@@ -14,7 +14,7 @@ The `omen-tray` crate provides a lightweight, unobtrusive system tray (AppIndica
    - **Exit:** Gracefully terminates the tray applet.
 3. **D-Bus Integration:**
    - Just like `omen-gui` and `omen-cli`, the tray applet is entirely unprivileged.
-   - It asynchronously sends `zbus` messages to the root `omen-space-daemon` over the D-Bus (`org.hp.omen.*` interfaces).
+   - It asynchronously sends `zbus` messages to the root `omen-hub-daemon` (or legacy `omen-space-daemon`) over the D-Bus (`org.hp.omen.*` interfaces).
 
 ## Technical Architecture
 
@@ -26,7 +26,7 @@ The `omen-tray` crate provides a lightweight, unobtrusive system tray (AppIndica
 ### Code Breakdown (`src/main.rs`)
 
 1. **`struct Tray`**: 
-   The core structure implementing the `ksni::Tray` trait. It defines the icon (`omenspace`) and the title (`OMEN-HUB`).
+   The core structure implementing the `ksni::Tray` trait. It defines the icon (`omen-hub`) and the title (`OMEN-HUB`).
 2. **`fn menu(&self)`**:
    This trait method constructs the actual drop-down menu hierarchy:
    - It uses `StandardItem` for clickable buttons and `SubMenu` for nested categories (e.g., "Güç Profili").

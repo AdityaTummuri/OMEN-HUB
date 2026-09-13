@@ -249,7 +249,7 @@ impl AcpiDiagnosticRunner {
     pub fn generate_triage_bundle() -> String {
         let timestamp = chrono_like_timestamp();
         let bundle_dir = format!("/tmp/omen-triage-{}", timestamp);
-        let archive_path = format!("/tmp/omen-space-triage-{}.tar.gz", timestamp);
+        let archive_path = format!("/tmp/omen-hub-triage-{}.tar.gz", timestamp);
 
         let _ = fs::create_dir_all(&bundle_dir);
 
@@ -343,7 +343,7 @@ impl AcpiDiagnosticRunner {
             crate::notifier::DesktopNotifier::open_in_user_session(&bundle_dir);
             crate::notifier::DesktopNotifier::open_github_issue(
                 &format!("[Triage Report] HP OMEN {} ({})", product_name, board_id),
-                &format!("Diagnostic bundle archive generated at `{}`.\n\nPlease attach `/tmp/omen-space-triage-{}.tar.gz` to this issue.", archive_path, timestamp),
+                &format!("Diagnostic bundle archive generated at `{}`.\n\nPlease attach `{}` to this issue.", archive_path, archive_path),
             );
 
             archive_path

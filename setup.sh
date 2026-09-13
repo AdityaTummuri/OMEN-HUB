@@ -199,21 +199,24 @@ do_install() {
     echo "====================================="
     echo " Stopping existing services"
     echo "====================================="
+    systemctl stop omen-hub-daemon.service 2>/dev/null || true
     systemctl stop omen-space-daemon.service 2>/dev/null || true
+    killall omen-hub-tray 2>/dev/null || true
     killall omen-tray 2>/dev/null || true
+    killall omen-hub-gui 2>/dev/null || true
     killall omen-gui 2>/dev/null || true
 
     echo "====================================="
     echo " Installing system files"
     echo "====================================="
-    mkdir -p /usr/libexec/omen-space
-    mkdir -p /etc/omen-space
+    mkdir -p /usr/libexec/omen-hub /usr/libexec/omen-space
+    mkdir -p /etc/omen-hub /etc/omen-space
     mkdir -p /etc/dbus-1/system.d
     mkdir -p /etc/systemd/system
     mkdir -p /usr/lib/sysusers.d
     mkdir -p /usr/lib/udev/rules.d
     mkdir -p /usr/bin
-    mkdir -p /usr/share/omen-space/assets
+    mkdir -p /usr/share/omen-hub/assets /usr/share/omen-space/assets
     mkdir -p /usr/share/applications
     mkdir -p /usr/share/pixmaps
     mkdir -p /etc/xdg/autostart
@@ -230,26 +233,41 @@ do_install() {
         fi
     }
 
-    local daemon_bin=$(find_bin "omen-space-daemon")
-    local cli_bin=$(find_bin "omen-cli")
-    local tray_bin=$(find_bin "omen-tray")
-    local gui_bin=$(find_bin "omen-gui")
+    local daemon_bin=$(find_bin "omen-hub-daemon")
+    if [[ -z "$daemon_bin" ]]; then daemon_bin=$(find_bin "omen-space-daemon"); fi
+    local cli_bin=$(find_bin "omen-hub-cli")
+    if [[ -z "$cli_bin" ]]; then cli_bin=$(find_bin "omen-cli"); fi
+    local tray_bin=$(find_bin "omen-hub-tray")
+    if [[ -z "$tray_bin" ]]; then tray_bin=$(find_bin "omen-tray"); fi
+    local gui_bin=$(find_bin "omen-hub-gui")
+    if [[ -z "$gui_bin" ]]; then gui_bin=$(find_bin "omen-gui"); fi
 
-    rm -f /usr/libexec/omen-space/omen-space-daemon
-    cp "${daemon_bin:-target/release/omen-space-daemon}" /usr/libexec/omen-space/
-    rm -f /usr/bin/omen-cli
-    cp "${cli_bin:-target/release/omen-cli}" /usr/bin/
-    rm -f /usr/bin/omen-tray
-    cp "${tray_bin:-target/release/omen-tray}" /usr/bin/
-    rm -f /usr/bin/omen-gui
-    cp "${gui_bin:-target/release/omen-gui}" /usr/bin/
+    rm -f /usr/libexec/omen-hub/omen-hub-daemon /usr/libexec/omen-space/omen-space-daemon
+    cp "${daemon_bin:-target/release/omen-hub-daemon}" /usr/libexec/omen-hub/omen-hub-daemon
+    ln -sf /usr/libexec/omen-hub/omen-hub-daemon /usr/libexec/omen-space/omen-space-daemon
+
+    rm -f /usr/bin/omen-hub-cli /usr/bin/omen-cli
+    cp "${cli_bin:-target/release/omen-hub-cli}" /usr/bin/omen-hub-cli
+    ln -sf /usr/bin/omen-hub-cli /usr/bin/omen-cli
+
+    rm -f /usr/bin/omen-hub-tray /usr/bin/omen-tray
+    cp "${tray_bin:-target/release/omen-hub-tray}" /usr/bin/omen-hub-tray
+    ln -sf /usr/bin/omen-hub-tray /usr/bin/omen-tray
+
+    rm -f /usr/bin/omen-hub-gui /usr/bin/omen-gui
+    cp "${gui_bin:-target/release/omen-hub-gui}" /usr/bin/omen-hub-gui
+    ln -sf /usr/bin/omen-hub-gui /usr/bin/omen-gui
 
     install -m 644 data/org.hp.omen.conf /etc/dbus-1/system.d/
-    install -m 644 data/omen-space-daemon.service /etc/systemd/system/
+    install -m 644 data/omen-hub-daemon.service /etc/systemd/system/
+    ln -sf /etc/systemd/system/omen-hub-daemon.service /etc/systemd/system/omen-space-daemon.service
+    install -m 644 data/sysusers.d/omen-hub.conf /usr/lib/sysusers.d/
     install -m 644 data/sysusers.d/omen-space.conf /usr/lib/sysusers.d/
+    install -m 644 data/99-omen-hub.rules /usr/lib/udev/rules.d/
     install -m 644 data/99-omen-space.rules /usr/lib/udev/rules.d/
-    rm -f /usr/share/applications/omen-space.desktop /usr/share/applications/org.hp.OmenSpace.desktop
+    rm -f /usr/share/applications/omen-space.desktop /usr/share/applications/org.hp.OmenSpace.desktop /usr/share/applications/omen-hub.desktop
     cp data/org.hp.OmenSpace.desktop /usr/share/applications/
+    cp data/omen-hub.desktop /usr/share/applications/
     cp data/org.hp.OmenSpace.service /usr/share/dbus-1/services/
     mkdir -p /usr/share/icons/hicolor/512x512/apps
     cp src/omen-gui/assets/omenspace.png /usr/share/icons/hicolor/512x512/apps/omenspace.png
@@ -257,14 +275,16 @@ do_install() {
     cp src/omen-gui/assets/omenspace.png /usr/share/pixmaps/omenspace.png
     cp src/omen-gui/assets/omen-hub.png /usr/share/pixmaps/omen-hub.png
     gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
+    cp -r src/omen-gui/assets/* /usr/share/omen-hub/assets/
     cp -r src/omen-gui/assets/* /usr/share/omen-space/assets/
 
-    cat <<EOF > /etc/xdg/autostart/omenspace-tray.desktop
+    rm -f /etc/xdg/autostart/omenspace-tray.desktop
+    cat <<EOF > /etc/xdg/autostart/omen-hub-tray.desktop
 [Desktop Entry]
 Name=OMEN-HUB Tray
 Comment=OMEN-HUB System Tray Icon
-Exec=/usr/bin/omen-tray
-Icon=omenspace
+Exec=/usr/bin/omen-hub-tray
+Icon=omen-hub
 Terminal=false
 Type=Application
 Categories=Utility;
@@ -289,30 +309,30 @@ EOF
     cd ..
 
     echo "====================================="
-    echo " Starting omen-space-daemon service"
+    echo " Starting omen-hub-daemon service"
     echo "====================================="
     systemctl daemon-reload
     systemctl reload dbus || true
-    systemctl enable --now omen-space-daemon.service
+    systemctl enable --now omen-hub-daemon.service
 
     echo "====================================="
     echo " Installation Complete!"
-    echo " Testing omen-cli connection to backend..."
+    echo " Testing omen-hub-cli connection to backend..."
     echo "====================================="
     sleep 2 # Give daemon a moment to initialize on dbus
 
-    if /usr/bin/omen-cli system info; then
+    if /usr/bin/omen-hub-cli system info || /usr/bin/omen-cli system info; then
         echo -e "\n✅ SUCCESS: CLI successfully communicated with the daemon!"
     else
-        echo -e "\n❌ ERROR: CLI failed to communicate with the daemon. Check 'systemctl status omen-space-daemon'."
+        echo -e "\n❌ ERROR: CLI failed to communicate with the daemon. Check 'systemctl status omen-hub-daemon'."
     fi
 
-    if [ -n "$SUDO_USER" ] && [ -x /usr/bin/omen-tray ]; then
+    if [ -n "$SUDO_USER" ] && [ -x /usr/bin/omen-hub-tray ]; then
         local user_id
         user_id=$(id -u "$SUDO_USER")
         if [ -d "/run/user/$user_id" ]; then
-            echo "Starting omen-tray for $SUDO_USER..."
-            su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0} XDG_RUNTIME_DIR=/run/user/$user_id /usr/bin/omen-tray >/dev/null 2>&1 &" || true
+            echo "Starting omen-hub-tray for $SUDO_USER..."
+            su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0} XDG_RUNTIME_DIR=/run/user/$user_id /usr/bin/omen-hub-tray >/dev/null 2>&1 &" || true
         fi
     fi
 
@@ -326,31 +346,35 @@ do_uninstall() {
     echo "====================================="
     echo " Uninstalling OMEN-HUB..."
     echo "====================================="
+    systemctl stop omen-hub-daemon.service 2>/dev/null || true
     systemctl stop omen-space-daemon.service 2>/dev/null || true
+    killall omen-hub-tray 2>/dev/null || true
     killall omen-tray 2>/dev/null || true
+    killall omen-hub-gui 2>/dev/null || true
     killall omen-gui 2>/dev/null || true
+    systemctl disable omen-hub-daemon.service 2>/dev/null || true
     systemctl disable omen-space-daemon.service 2>/dev/null || true
 
-    rm -rf /usr/libexec/omen-space
-    rm -rf /etc/omen-space
-    rm -rf /var/lib/omen-space /var/lib/omen-space-daemon
+    rm -rf /usr/libexec/omen-hub /usr/libexec/omen-space
+    rm -rf /etc/omen-hub /etc/omen-space
+    rm -rf /var/lib/omen-hub /var/lib/omen-space /var/lib/omen-space-daemon
     rm -f /etc/dbus-1/system.d/org.hp.omen.conf
-    rm -f /etc/systemd/system/omen-space-daemon.service
-    rm -f /usr/lib/sysusers.d/omen-space.conf
-    rm -f /usr/lib/udev/rules.d/99-omen-space.rules
+    rm -f /etc/systemd/system/omen-hub-daemon.service /etc/systemd/system/omen-space-daemon.service
+    rm -f /usr/lib/sysusers.d/omen-hub.conf /usr/lib/sysusers.d/omen-space.conf
+    rm -f /usr/lib/udev/rules.d/99-omen-hub.rules /usr/lib/udev/rules.d/99-omen-space.rules
 
-    rm -f /usr/bin/omen-cli
-    rm -f /usr/bin/omen-tray
-    rm -f /usr/bin/omen-gui
+    rm -f /usr/bin/omen-hub-cli /usr/bin/omen-cli
+    rm -f /usr/bin/omen-hub-tray /usr/bin/omen-tray
+    rm -f /usr/bin/omen-hub-gui /usr/bin/omen-gui
 
-    rm -rf /usr/share/omen-space
-    rm -f /usr/share/applications/omen-space.desktop
+    rm -rf /usr/share/omen-hub /usr/share/omen-space
+    rm -f /usr/share/applications/omen-hub.desktop /usr/share/applications/omen-space.desktop
     rm -f /usr/share/applications/org.hp.OmenSpace.desktop
     rm -f /usr/share/dbus-1/services/org.hp.OmenSpace.service
     rm -f /usr/share/pixmaps/omenspace.png /usr/share/pixmaps/omen-hub.png
     rm -f /usr/share/icons/hicolor/512x512/apps/omenspace.png /usr/share/icons/hicolor/512x512/apps/omen-hub.png
     gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
-    rm -f /etc/xdg/autostart/omenspace-tray.desktop
+    rm -f /etc/xdg/autostart/omen-hub-tray.desktop /etc/xdg/autostart/omenspace-tray.desktop
 
     systemctl daemon-reload
     systemctl reload dbus || true

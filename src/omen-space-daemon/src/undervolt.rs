@@ -23,8 +23,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use zbus::interface;
 
-const CONFIG_PATH: &str = "/etc/omen-space/undervolt.json";
-
 // Intel MSR addresses matching intel_undervolt.py ADDRESSES
 const MSR_VOLTAGE_OFFSETS: u64 = 0x150;
 const MSR_TEMPERATURE: u64 = 0x1a2;
@@ -149,18 +147,20 @@ impl Default for UndervoltConfig {
 
 impl UndervoltConfig {
     fn load() -> Self {
-        if let Ok(data) = std::fs::read_to_string(CONFIG_PATH) {
+        let path = crate::config::get_daemon_config_path("undervolt.json");
+        if let Ok(data) = std::fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {
             Self::default()
         }
     }
     fn save(&self) {
-        if let Some(dir) = Path::new(CONFIG_PATH).parent() {
+        let path = crate::config::get_daemon_config_path("undervolt.json");
+        if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(CONFIG_PATH, json);
+            let _ = std::fs::write(&path, json);
         }
     }
 }

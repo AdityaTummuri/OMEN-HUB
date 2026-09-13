@@ -1,4 +1,4 @@
-# OMEN-HUB Backend Daemon (`omen-space-daemon`)
+# OMEN-HUB Backend Daemon (`omen-hub-daemon` / `omen-space-daemon`)
 
 The backend daemon is the absolute core of the OMEN-HUB stack. Because controlling laptop hardware (like fan speeds, CPU power limits, and RGB memory registers) requires strict `root` privileges, the daemon is designed to run in the background as a `systemd` service and expose safe methods over D-Bus for the user interface to interact with.
 

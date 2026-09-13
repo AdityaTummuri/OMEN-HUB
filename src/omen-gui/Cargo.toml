@@ -3,6 +3,11 @@ name = "omen-gui"
 version = "2.0.3"
 edition = "2021"
 
+[[bin]]
+name = "omen-hub-gui"
+path = "src/main.rs"
+
+
 [dependencies]
 gtk = { version = "0.7", package = "gtk4", features = ["v4_12"] }
 libadwaita = { version = "0.5", features = ["v1_4"] }

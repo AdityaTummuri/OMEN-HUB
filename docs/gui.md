@@ -9,10 +9,10 @@ The graphical user interface for OMEN-HUB is designed to be modern, responsive, 
    - Allows users to easily toggle Fan Modes, Performance Profiles, and RGB animations without using a terminal.
 2. **D-Bus Client Implementation:**
    - The GUI has **no root privileges**. It cannot control hardware directly.
-   - It uses `zbus` proxy macros (inside `daemon_client.rs`) to asynchronously send commands to the `omen-space-daemon`.
+   - It uses `zbus` proxy macros (inside `daemon_client.rs`) to asynchronously send commands to the `omen-hub-daemon` (or legacy `omen-space-daemon`).
 3. **Asset & Theme Management:**
    - Automatically loads CSS styling (`style.css`) for custom UI components (like the custom toggle chips).
-   - Resolves image paths dynamically (`asset_resolver.rs`) so the application works perfectly whether it is launched locally (`cargo run`) or installed system-wide (`/usr/share/omen-space/assets`).
+   - Resolves image paths dynamically (`asset_resolver.rs`) so the application works perfectly whether it is launched locally (`cargo run`) or installed system-wide (`/usr/share/omen-hub/assets` or `/usr/share/omen-space/assets`).
 4. **App Updator:**
    - Connects to the GitHub API to check for software updates.
    - Triggers `fwupdmgr` to scan for HP BIOS and firmware updates natively.

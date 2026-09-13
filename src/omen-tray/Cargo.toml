@@ -3,6 +3,11 @@ name = "omen-tray"
 version = "2.0.3"
 edition = "2021"
 
+[[bin]]
+name = "omen-hub-tray"
+path = "src/main.rs"
+
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 zbus = "4.4"

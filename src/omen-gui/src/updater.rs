@@ -380,8 +380,12 @@ fn start_update_process(vbox: gtk::Box, dialog: gtk::Window) {
                 glib::ControlFlow::Continue
             });
 
-        let setup_path = if std::path::Path::new("/usr/share/omen-space/setup.sh").exists() {
+        let setup_path = if std::path::Path::new("/usr/share/omen-hub/setup.sh").exists() {
+            "/usr/share/omen-hub/setup.sh".to_string()
+        } else if std::path::Path::new("/usr/share/omen-space/setup.sh").exists() {
             "/usr/share/omen-space/setup.sh".to_string()
+        } else if std::path::Path::new("/opt/omen-hub/setup.sh").exists() {
+            "/opt/omen-hub/setup.sh".to_string()
         } else if std::path::Path::new("/opt/omen-space/setup.sh").exists() {
             "/opt/omen-space/setup.sh".to_string()
         } else {

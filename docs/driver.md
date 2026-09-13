@@ -15,4 +15,4 @@ However, modern HP Omen and Victus laptops utilize proprietary, undocumented I2C
    - This ensures that whenever the user updates their Linux kernel (e.g., from `6.1` to `6.5`), the driver automatically recompiles itself for the new kernel version during boot.
 
 ## How it interacts with OMEN-HUB
-The `omen-space-daemon` contains a `lighting.rs` module. When the user selects a color in the GUI, the daemon translates this color into a raw byte buffer and pipes it directly into the kernel module's exposed endpoint, triggering an instant hardware-level color change on the keyboard.
+The `omen-hub-daemon` (or legacy `omen-space-daemon`) contains a `lighting.rs` module. When the user selects a color in the GUI, the daemon translates this color into a raw byte buffer and pipes it directly into the kernel module's exposed endpoint, triggering an instant hardware-level color change on the keyboard.

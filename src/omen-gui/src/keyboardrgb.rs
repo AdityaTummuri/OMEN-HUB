@@ -20,19 +20,17 @@ enum KeyboardMode {
 }
 
 fn get_active_keyboard_mode(detected: KeyboardMode) -> KeyboardMode {
-    if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/omenspace/settings.json", home);
-        if let Ok(json_str) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
-                    return match zo {
-                        1 => KeyboardMode::Omen4Zone,
-                        2 => KeyboardMode::Victus1Zone,
-                        3 => KeyboardMode::PerKey,
-                        4 => KeyboardMode::DesktopRgb,
-                        _ => detected,
-                    };
-                }
+    let path = crate::get_user_config_path("settings.json");
+    if let Ok(json_str) = std::fs::read_to_string(&path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+            if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
+                return match zo {
+                    1 => KeyboardMode::Omen4Zone,
+                    2 => KeyboardMode::Victus1Zone,
+                    3 => KeyboardMode::PerKey,
+                    4 => KeyboardMode::DesktopRgb,
+                    _ => detected,
+                };
             }
         }
     }
@@ -1038,13 +1036,11 @@ pub fn build_page() -> (
     }
 
     let mut zone_override = 0;
-    if let Ok(home) = std::env::var("HOME") {
-        let path = format!("{}/.config/omenspace/settings.json", home);
-        if let Ok(json_str) = std::fs::read_to_string(&path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
-                    zone_override = zo;
-                }
+    let path = crate::get_user_config_path("settings.json");
+    if let Ok(json_str) = std::fs::read_to_string(&path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+            if let Some(zo) = json.get("zone_override").and_then(|v| v.as_u64()) {
+                zone_override = zo;
             }
         }
     }
@@ -1443,13 +1439,11 @@ pub fn build_page() -> (
             || lb_prod_lower.contains("desktop")
             || lb_prod_lower.contains("transcend")
             || lb_prod_lower.contains("max");
-        if let Ok(home) = std::env::var("HOME") {
-            let path = format!("{}/.config/omenspace/settings.json", home);
-            if let Ok(json_str) = std::fs::read_to_string(&path) {
-                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                    if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) {
-                        show_lightbar = lb;
-                    }
+        let path = crate::get_user_config_path("settings.json");
+        if let Ok(json_str) = std::fs::read_to_string(&path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                if let Some(lb) = json.get("lightbar_enabled").and_then(|v| v.as_bool()) {
+                    show_lightbar = lb;
                 }
             }
         }

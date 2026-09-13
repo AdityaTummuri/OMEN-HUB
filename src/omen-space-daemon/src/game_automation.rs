@@ -2,7 +2,6 @@
 use log::{error, info};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
@@ -31,9 +30,21 @@ impl GameAutomationService {
         }
     }
 
+    fn profiles_path() -> std::path::PathBuf {
+        let hub_path = std::path::PathBuf::from("/etc/omen-hub/app_profiles.json");
+        if hub_path.exists() {
+            return hub_path;
+        }
+        let legacy_path = std::path::PathBuf::from("/etc/omenspace/app_profiles.json");
+        if legacy_path.exists() {
+            return legacy_path;
+        }
+        hub_path
+    }
+
     fn load_profiles() -> HashMap<String, AppProfile> {
-        let path = Path::new("/etc/omenspace/app_profiles.json");
-        if let Ok(content) = fs::read_to_string(path) {
+        let path = Self::profiles_path();
+        if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(profiles) = serde_json::from_str::<Vec<AppProfile>>(&content) {
                 let mut map = HashMap::new();
                 for p in profiles {
@@ -46,13 +57,13 @@ impl GameAutomationService {
     }
 
     fn save_profiles(map: &HashMap<String, AppProfile>) {
-        let path = Path::new("/etc/omenspace/app_profiles.json");
+        let path = Self::profiles_path();
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
         }
         let profiles: Vec<AppProfile> = map.values().cloned().collect();
         if let Ok(json) = serde_json::to_string_pretty(&profiles) {
-            if let Err(e) = fs::write(path, json) {
+            if let Err(e) = fs::write(&path, json) {
                 error!("Failed to save app profiles: {}", e);
             }
         }

@@ -6,12 +6,12 @@ This guide is intended for maintainers, senior contributors, and reviewers evalu
 
 ## 1. Security & Privilege Boundaries (CRITICAL)
 
-OMEN-HUB uses a split-privilege architecture. The user-facing apps (`omen-gui`, `omen-cli`, `omen-tray`) run entirely unprivileged, while the `omen-space-daemon` runs as root to interact with the kernel and hardware.
+OMEN-HUB uses a split-privilege architecture. The user-facing apps (`omen-gui`, `omen-cli`, `omen-tray`) run entirely unprivileged, while the `omen-hub-daemon` (legacy alias `omen-space-daemon`) runs as root to interact with the kernel and hardware.
 
 - **Zero Sudo in User Space:** 
   If a PR modifies `omen-gui`, `omen-tray`, or `omen-cli` to execute shell commands with `sudo` (e.g., `pkexec` or `sudo systemctl`), **reject it immediately**. All hardware logic must be routed through D-Bus to the daemon.
 - **Strict D-Bus Input Validation:**
-  When reviewing `omen-space-daemon`, ensure that incoming arguments from D-Bus clients are rigorously sanitized.
+  When reviewing `omen-hub-daemon`, ensure that incoming arguments from D-Bus clients are rigorously sanitized.
   - **No Shell Injection:** Never pass raw D-Bus strings into `tokio::process::Command` without strict escaping or parsing.
   - **Type Checking:** Ensure strings representing profiles (e.g., `"eco"`, `"balanced"`) are mapped to internal Enums using `match` statements with a fallback error case.
 - **Polkit & DBus Policies:**

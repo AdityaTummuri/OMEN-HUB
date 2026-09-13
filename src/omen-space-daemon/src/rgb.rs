@@ -42,9 +42,21 @@ const VALID_MODES: &[&str] = &[
 ];
 const VALID_DIRECTIONS: &[&str] = &["ltr", "rtl"];
 
-// Config persistence
-const CONFIG_PATH: &str = "/etc/omen-space/rgb.json";
-const PER_KEY_MAP_PATH: &str = "/root/.config/omen-space/per_key_map.json";
+fn get_rgb_config_path() -> std::path::PathBuf {
+    crate::config::get_daemon_config_path("rgb.json")
+}
+
+fn get_per_key_map_path() -> std::path::PathBuf {
+    let hub_path = std::path::PathBuf::from("/root/.config/omen-hub/per_key_map.json");
+    if hub_path.exists() {
+        return hub_path;
+    }
+    let legacy_path = std::path::PathBuf::from("/root/.config/omen-space/per_key_map.json");
+    if legacy_path.exists() {
+        return legacy_path;
+    }
+    hub_path
+}
 
 // ── Hardware detection ─────────────────────────────────────────────────────────
 
@@ -460,7 +472,8 @@ impl Default for RgbConfig {
 
 impl RgbConfig {
     fn load() -> Self {
-        if let Ok(data) = std::fs::read_to_string(CONFIG_PATH) {
+        let path = get_rgb_config_path();
+        if let Ok(data) = std::fs::read_to_string(&path) {
             let mut cfg: Self = serde_json::from_str(&data).unwrap_or_default();
             // Validate mode
             if !VALID_MODES.contains(&cfg.mode.as_str()) {
@@ -483,11 +496,12 @@ impl RgbConfig {
     }
 
     fn save(&self) {
-        if let Some(dir) = Path::new(CONFIG_PATH).parent() {
+        let path = get_rgb_config_path();
+        if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(CONFIG_PATH, json);
+            let _ = std::fs::write(&path, json);
         }
     }
 }
@@ -579,7 +593,8 @@ impl RgbService {
     }
 
     fn load_per_key_map() -> HashMap<String, serde_json::Value> {
-        if let Ok(data) = std::fs::read_to_string(PER_KEY_MAP_PATH) {
+        let path = get_per_key_map_path();
+        if let Ok(data) = std::fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {
             HashMap::new()
@@ -1177,10 +1192,11 @@ impl RgbService {
             warn!("SavePerKeyMap: invalid JSON");
             return "FAIL".to_string();
         }
-        if let Some(dir) = Path::new(PER_KEY_MAP_PATH).parent() {
+        let path = get_per_key_map_path();
+        if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        match std::fs::write(PER_KEY_MAP_PATH, &map_json) {
+        match std::fs::write(&path, &map_json) {
             Ok(_) => {
                 info!("SavePerKeyMap: saved");
                 "OK".to_string()

@@ -18,8 +18,10 @@ MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.3.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # MOK_DIR — initialised here so it is always defined (avoids unbound variable
-# errors in the MOK_PENDING check when Secure Boot is disabled)
-MOK_DIR="/var/lib/omen-space/mok"
+MOK_DIR="/var/lib/omen-hub/mok"
+if [ ! -d "$MOK_DIR" ] && [ -d "/var/lib/omen-space/mok" ]; then
+    MOK_DIR="/var/lib/omen-space/mok"
+fi
 
 # ── Kernel version detection ──────────────────────────────────────────────────
 # Kernel 7.0+ has Omen/Victus fan control in the stock hp-wmi module.
@@ -367,7 +369,7 @@ DKMSRGB
             openssl req -new -x509 -newkey rsa:2048 \
                 -keyout "$MOK_DIR/MOK.priv" \
                 -outform DER -out "$MOK_DIR/MOK.der" \
-                -days 36500 -subj "/CN=omen-space-mok/" -nodes 2>/dev/null
+                -days 36500 -subj "/CN=omen-hub-mok/" -nodes 2>/dev/null
             chmod 600 "$MOK_DIR/MOK.priv"
         fi
 
