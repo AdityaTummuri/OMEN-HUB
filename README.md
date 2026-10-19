@@ -41,6 +41,20 @@ OMEN-HUB is developed and tested on:
 
 Other HP OMEN and Victus models may work but are not guaranteed. The [hardware capabilities database](src/omen-space-daemon/src/capabilities.rs) contains entries for many models contributed by the community. If your model is not listed, basic functionality through standard `hp-wmi` interfaces should still work.
 
+
+## Community Hardware Compatibility Reports
+
+When reporting compatibility for an OMEN or Victus model, include the details below so others can distinguish confirmed behavior from assumptions:
+
+- **Exact model:** product name and model identifier (avoid sharing serial numbers).
+- **Distribution and kernel:** distro/version and `uname -r`.
+- **Relevant modules:** `hp-wmi`, `hp-omen-extra`, and any related driver versions or repository commits.
+- **Feature tested:** fan mode, power profile, keyboard lighting, GPU/MUX status, or telemetry.
+- **Result:** working, partially working, unsupported, or not tested; include relevant logs with personal identifiers removed.
+- **Safety notes:** whether the feature was tested on AC power, whether a reboot was needed, and any observed limitation.
+
+Please report only features you actually tested. Do not infer support for another laptop model from a similar product name, and never include serial numbers or other private device identifiers in public reports.
+
 ---
 
 ## Architecture
